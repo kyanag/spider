@@ -1,3 +1,5 @@
-let url = "https://www.npmjs.com/package/cheerio";
+const cheerio = require("cheerio");
 
-console.log(url.match(/\/package\/\w+/g));
+let $ = cheerio.load("<html><head><title>dafasdfas</title></head><body></body></html>");
+
+console.log($("title").toString())

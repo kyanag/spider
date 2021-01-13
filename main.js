@@ -1,37 +1,59 @@
-const Rx = require("rxjs");
-const a = require("rxjs/ajax")
-const { map, filter, concatMap} = require("rxjs/operators");
-
-const { link_extrator } = require("./src/Extractors")
+const { linkExtrator } = require("./src/Extractors")
 
 const App = require("./src/App.js");
+const cheerio = require("cheerio");
 
 let config = {
-    "entry": [
+    entry: [
         "https://www.npmjs.com/",
         "https://www.npmjs.com/package/cheerio",
     ],
-    "maxRetryNum": 5,
-    "domains": [
+    maxRetryNum: 5,
+    domains: [
         'www.npmjs.com'
     ],
-    "extractors": {
-        'links': link_extrator,
+    listeners:{
+        "request.start": function(request){
+            console.log(`--- ${request.url} 开始`);
+        },
+        "request.finish": function(request, response, error){
+            console.log(`\t${request.url} 成功`);
+        },
+        "request.error": function(request, error){
+            console.log(`\t${request.url} 失败`);
+        },
+        "extract.success": function(topic, data, {request, response}){
+            console.log(topic, data);
+        },
+        "extract.error": function(error){
+            console.log(error);
+        },
+        "resource.push": function(request){
+            console.log(`入队: ${request.url}`);
+        }
     },
-    "routes": [
+    extractors: {
+        'links': linkExtrator,
+    },
+    routes: [
         {
-            topic: "@links",
+            topic: "@link",
             regex: "",
             extractor: "links",
         },
         {
             topic: "projects",
             regex: /\/package\/\w+/g,
-            extractor: "links",
+            extractor: function(app, {request, response}){
+                let $ = cheerio.load(response.body);
+                return {
+                    title: $("title").html(),
+                    url: request.url
+                };
+            },
         },
     ],
     requestDelay: 0 * 1000,             //请求间隔时间
-    sleepDelay: 5 * 1000,               //请求队列空后， 睡眠时间
     finishDelay: 10 * 1000,             //队列空置 ${x} 微秒后退出
 };
 
