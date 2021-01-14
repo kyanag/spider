@@ -69,7 +69,7 @@ class App{
                 return this.fetch(resource);
             }),
             filter( ({request, response = null, error}) => {
-                return true;
+                return error == null;
             }),
         )
     }
@@ -105,17 +105,10 @@ class App{
 
     run(){
         this.createObservable().subscribe( ( {request, response = null, error} ) => {
-            //1     打日志
-            if(error){
-                console.log(error);
-                return;
-            }
-            
-            //2     抽取数据
             this.config.routes.filter( (route) => {
-                console.log(request.url, route.regex, request.url.match(route.regex) != null);
                 return request.url.match(route.regex) != null;
-            }).forEach( (route) => {
+            }).forEach( (route, index) => {
+                console.log(`\t抽取器${index}:开始: ${request.url}`);
                 try{
                     let extractor = this.getExtractor(route.extractor);
                     //
@@ -130,7 +123,7 @@ class App{
                                 });
                                 break;
                             default:
-                                this.$eventEmitter.emit("extract.success", topic, data, {request, response});
+                                this.$eventEmitter.emit("extract.success", topic, record, {request, response});
                         }
                     })
                 }catch(error){

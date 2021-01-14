@@ -29,7 +29,7 @@ let config = {
             console.log(error);
         },
         "resource.push": function(request){
-            console.log(`入队: ${request.url}`);
+            //console.log(`入队: ${request.url}`);
         }
     },
     extractors: {

@@ -12,19 +12,17 @@ module.exports = {
 
     //链接抽取器
     linkExtrator: function(app, {request, response}){
-        console.log("abcdefg", request.url);
+        console.log("\t链接抽取:", request.url);
         const $ = cheerio.load(response.body);
-    
+        
         return $("a[href]").map( (index, node) => {
             return $(node).attr("href");
-        }).filter( function(link){
-            console.warn(arguments)
-            //为空的
-
-            //域名不符合的
+        })
+        .toArray()
+        .filter( function(link){
             return link;
-        }).map( link => {
-            console.log(link);
+        })
+        .map( (link) => {
             return url.resolve(request.url, link);
         });
     },
