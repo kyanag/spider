@@ -5,6 +5,8 @@
   "main": "main.js",
   "dependencies": {
     "cheerio": "^1.0.0-rc.5",
+    "crypto": "^1.0.1",
+    "jsdom": "^16.4.0",
     "request": "^2.88.2",
     "rxjs": "^6.6.3"
   },

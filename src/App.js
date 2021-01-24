@@ -34,14 +34,23 @@ class App{
         this.config = config;
     }
 
-    addResource(resource){
+    /**
+     * 
+     * @param {Object|String} resource      url
+     * @param {String} topic                强制主题
+     * @param {Object} extra_attributes     附加数据   
+     */
+    addResource(resource, topic = null, extra_attributes = {}){
         if(typeof(resource) == 'string'){
             resource = {
                 reqOptions:{
                     method: "get",
                     url: resource,
-                    headers: {}
+                    headers: {},
+                    timeout: 5000
                 },
+                _topic: topic,
+                _extra_attributes: extra_attributes,
                 _retry: 0
             }
         }
@@ -54,8 +63,9 @@ class App{
         let onDelay = this.config.requestDelay;
         let onTimeout = this.config.finishDelay;
 
+        
         return Rx.interval(onDelay).pipe(
-            map( (value) => {
+            map( (value, ...args) => {
                 if(resources.length > 0){
                     return resources.shift();
                 }
@@ -103,12 +113,18 @@ class App{
         })
     }
 
+    stop(){
+        this.$eventEmitter.emit("app.before-stop", this);
+        this.subscription.unsubscribe();
+    }
+
     run(){
-        this.createObservable().subscribe( ( {request, response = null, error} ) => {
+        this.$eventEmitter.emit("app.before-start", this);
+
+        this.subscription = this.createObservable().subscribe( ( {request, response = null, error} ) => {
             this.config.routes.filter( (route) => {
                 return request.url.match(route.regex) != null;
             }).forEach( (route, index) => {
-                console.log(`\t抽取器${index}:开始: ${request.url}`);
                 try{
                     let extractor = this.getExtractor(route.extractor);
                     //
@@ -123,7 +139,7 @@ class App{
                                 });
                                 break;
                             default:
-                                this.$eventEmitter.emit("extract.success", topic, record, {request, response});
+                                this.$eventEmitter.emit("extract.success", topic, record, {request, response}, this);
                         }
                     })
                 }catch(error){
@@ -131,7 +147,7 @@ class App{
                 }
             });
         }, (error) => {
-            this.$eventEmitter.emit("app.error", error);
+            this.$eventEmitter.emit("app.error", app, error);
         });
     }
 }

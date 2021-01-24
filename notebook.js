@@ -1,5 +1,8 @@
 const cheerio = require("cheerio");
 
-let $ = cheerio.load("<html><head><title>dafasdfas</title></head><body></body></html>");
 
-console.log($("title").toString())
+let regex = /article\-(\d*).*\.html/g;
+
+let url = "https://www.2meinv.com/article-2903.html";
+
+console.log(url.match(regex));
