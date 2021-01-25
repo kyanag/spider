@@ -1,8 +1,16 @@
 const cheerio = require("cheerio");
 
 
-let regex = /article\-(\d*).*\.html/g;
+class Test{
 
-let url = "https://www.2meinv.com/article-2903.html";
+    *t(){
+        yield 1;
+    }
+}
 
-console.log(url.match(regex));
+let a = new Test();
+
+let t = a.t();
+for(let i in t){
+    console.log(i);
+}

@@ -1,6 +1,6 @@
 const url = require("url");
 const cheerio = require("cheerio");
-const HtmlDocument = require("./supports/Document.js")
+const HtmlDocument = require("./supports/.js/index.js")
 
 module.exports = {
     //xpath抽取器工厂
@@ -46,7 +46,7 @@ module.exports = {
     },
 
     //链接抽取器工厂
-    link_extrator_factory: function({patterns = []}){
+    link_extrator_factory: function({patterns = [], }){
         return function(app, {request, response}){
             const $ = cheerio.load(response.body);
             

@@ -37,10 +37,13 @@ class App{
     /**
      * 
      * @param {Object|String} resource      url
-     * @param {String} topic                强制主题
+     * @param {String|Array} topic                强制主题
      * @param {Object} extra_attributes     附加数据   
      */
     addResource(resource, topic = null, extra_attributes = {}){
+        if(typeof(topic) == "string"){
+            topic = [topic];
+        }
         if(typeof(resource) == 'string'){
             resource = {
                 reqOptions:{
@@ -49,14 +52,14 @@ class App{
                     headers: {},
                     timeout: 5000
                 },
-                _topic: topic,
+                _topic: topic,                          //强制主题
                 _extra_attributes: extra_attributes,
-                _retry: 0
+                _retry: 0,
             }
         }
         resources.push(resource);
 
-        this.$eventEmitter.emit("resource.push", resource.reqOptions);
+        this.$eventEmitter.emit("resource.push", resource, this);
     }
 
     createObservable(){
@@ -84,22 +87,15 @@ class App{
         )
     }
 
-    getExtractor(name){
-        if(typeof(name) =='string'){
-            return this.config.extractors[name] || null;
-        }
-        return name;
-    }
-
     async fetch(resource){
         return await new Promise((resolve, reject) => {
             try{
                 let request = resource.reqOptions;
 
-                this.$eventEmitter.emit("request.start", request);
+                this.$eventEmitter.emit("request.start", request, this);
                 httpClient(request, (error, response, body) => {
-                    this.$eventEmitter.emit("request.finish", request, response, error);
-                    resolve({request, response, error})
+                    this.$eventEmitter.emit("request.success", request, response, error, this);
+                    resolve({request, response, error, resource})
                 })
             }catch(error){
                 //失败自动重试
@@ -107,8 +103,8 @@ class App{
                 if(resource._retry < this.config.maxRetryNum){
                     this.addResource(resource);
                 }
-                this.$eventEmitter.emit("request.error", request, error);
-                resolve({request, error})
+                this.$eventEmitter.emit("request.error", request, error, this);
+                resolve({request, error, resource})
             }
         })
     }
@@ -121,33 +117,21 @@ class App{
     run(){
         this.$eventEmitter.emit("app.before-start", this);
 
-        this.subscription = this.createObservable().subscribe( ( {request, response = null, error} ) => {
+        this.subscription = this.createObservable().subscribe( ( {request, response = null, error, resource} ) => {
             this.config.routes.filter( (route) => {
+                //强制 topic
+
                 return request.url.match(route.regex) != null;
-            }).forEach( (route, index) => {
+            }).forEach( route => {
                 try{
-                    let extractor = this.getExtractor(route.extractor);
-                    //
-                    Promise.resolve(
-                        extractor(this, {request, response})
-                    ).then( record => {
-                        let topic = route.topic;
-                        switch(topic){
-                            case "@link":
-                                record.forEach( link => {
-                                    this.addResource(link);
-                                });
-                                break;
-                            default:
-                                this.$eventEmitter.emit("extract.success", topic, record, {request, response}, this);
-                        }
-                    })
+                    let extractor = route.extractor;
+                    extractor(this, {request, response})
                 }catch(error){
-                    this.$eventEmitter.emit("extract.error", error);
+                    this.$eventEmitter.emit("extract.error", error, this);
                 }
             });
         }, (error) => {
-            this.$eventEmitter.emit("app.error", app, error);
+            this.$eventEmitter.emit("app.error", error, this);
         });
     }
 }
