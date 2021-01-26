@@ -40,7 +40,7 @@ class App{
      * @param {String|Array} topic                强制主题
      * @param {Object} extra_attributes     附加数据   
      */
-    addResource(resource, topic = null, extra_attributes = {}){
+    addResource(resource, topic = null, extra_attributes = undefined){
         if(typeof(topic) == "string"){
             topic = [topic];
         }
@@ -87,6 +87,28 @@ class App{
         )
     }
 
+    async download(resource){
+        return await new Promise((resolve, reject) => {
+            try{
+                let request = resource.reqOptions;
+
+                this.$eventEmitter.emit("request.start", request, this);
+                httpClient(request, (error, response, body) => {
+                    this.$eventEmitter.emit("request.success", request, response, error, this);
+                    resolve({request, response, error, resource})
+                })
+            }catch(error){
+                //失败自动重试
+                resource._retry += 1;
+                if(resource._retry < this.config.maxRetryNum){
+                    this.addResource(resource);
+                }
+                this.$eventEmitter.emit("request.error", request, error, this);
+                resolve({request, error, resource})
+            }
+        })
+    }
+
     async fetch(resource){
         return await new Promise((resolve, reject) => {
             try{
@@ -124,8 +146,16 @@ class App{
                 return request.url.match(route.regex) != null;
             }).forEach( route => {
                 try{
-                    let extractor = route.extractor;
-                    extractor(this, {request, response})
+                    let extractor = this.getExtractor(route.extractor);
+                    //
+                    Promise.resolve(
+                        extractor(this, {request, response}, resource)
+                    ).then( record => {
+                        if(resource._extra_attributes){
+                            record = Object.assign(resource._extra_attributes, record);
+                        }
+                        this.$eventEmitter.emit("extract.success", route.topic, record, {request, response}, resource, this);
+                    })
                 }catch(error){
                     this.$eventEmitter.emit("extract.error", error, this);
                 }
