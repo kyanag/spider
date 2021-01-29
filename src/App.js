@@ -2,6 +2,16 @@ const httpClient = require("request");
 const Rx = require("rxjs");
 const { map, filter, timeout, concatMap } = require("rxjs/operators");
 const EventEmitter = require('events');
+const lodash = require("lodash");
+
+
+Function.prototype.addDecorator = function(now){
+    let last = this;
+    return function(...args){
+        let _ = last.call(this, ...args);
+        return now.call(this, _);
+    }
+}
 
 let resources = [
     /* 
@@ -37,22 +47,22 @@ class App{
     /**
      * 
      * @param {Object|String} resource      url
-     * @param {String|Array} topic                强制主题
+     * @param {String|Array} topics                强制主题
      * @param {Object} extra_attributes     附加数据   
      */
-    addResource(resource, topic = null, extra_attributes = undefined){
-        if(typeof(topic) == "string"){
-            topic = [topic];
+    addResource(resource, topics = null, extra_attributes = undefined){
+        if(typeof(topics) == "string"){
+            topics = [topics];
         }
         if(typeof(resource) == 'string'){
             resource = {
-                reqOptions:{
+                request:{
                     method: "get",
                     url: resource,
                     headers: {},
                     timeout: 5000
                 },
-                _topic: topic,                          //强制主题
+                _topics: topics,                          //强制主题
                 _extra_attributes: extra_attributes,
                 _retry: 0,
             }
@@ -90,7 +100,7 @@ class App{
     async download(resource){
         return await new Promise((resolve, reject) => {
             try{
-                let request = resource.reqOptions;
+                let request = resource.request;
 
                 this.$eventEmitter.emit("request.start", request, this);
                 httpClient(request, (error, response, body) => {
@@ -112,7 +122,7 @@ class App{
     async fetch(resource){
         return await new Promise((resolve, reject) => {
             try{
-                let request = resource.reqOptions;
+                let request = resource.request;
 
                 this.$eventEmitter.emit("request.start", request, this);
                 httpClient(request, (error, response, body) => {
@@ -142,14 +152,19 @@ class App{
         this.subscription = this.createObservable().subscribe( ( {request, response = null, error, resource} ) => {
             this.config.routes.filter( (route) => {
                 //强制 topic
-
+                if(lodash.indexOf(resource._topics, route.topic) >= 0){
+                    return true;
+                }
                 return request.url.match(route.regex) != null;
             }).forEach( route => {
                 try{
-                    let extractor = this.getExtractor(route.extractor);
+                    /**
+                     * @var {Function} extractor
+                     */
+                    let extractor = route.extractor;
                     //
                     Promise.resolve(
-                        extractor(this, {request, response}, resource)
+                        extractor.call(this, {request, response}, resource)
                     ).then( record => {
                         if(resource._extra_attributes){
                             record = Object.assign(resource._extra_attributes, record);

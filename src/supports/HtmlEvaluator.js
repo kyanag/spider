@@ -10,7 +10,7 @@ class HtmlEvaluator{
 
     _getDom(){
         if(this.document === null){
-            let window = new jsdom.JSDOM(response.body).window;
+            let window = new jsdom.JSDOM(this.response.body).window;
             this.document = window.document;
             
             this.types = window;
@@ -33,6 +33,7 @@ class HtmlEvaluator{
                 case xpath_result.UNORDERED_NODE_ITERATOR_TYPE:
                 default:
                     let _ = [];
+                    let node;
                     while(node = xpath_result.iterateNext()){
                         let value = this.getNodeValue(node);
                         //console.log(node.constructor, jsdom.JSDOM);
@@ -70,11 +71,11 @@ class HtmlEvaluator{
     }
 
     findXpath(xpath_selector, multi = false){
-        let xpathResult = this.document.evaluate(
+        let xpathResult = this._getDom().evaluate(
             xpath_selector, //"//title//text()", 
-            this.document.window.document, 
+            this._getDom(), 
             null,
-            this.document.window.XPathResult.ANY_TYPE
+            this.types.XPathResult.ANY_TYPE
         );
         return this.xpathResultValue(xpathResult, multi);
     }
@@ -82,12 +83,12 @@ class HtmlEvaluator{
     *find(selector, multi = false){
         if(multi){
             let _ = [];
-            let _nodeList = this.document.querySelectorAll(selector);
+            let _nodeList = this._getDom().querySelectorAll(selector);
             for(var node of _nodeList){
                 yield this.getNodeValue(node);
             }
         }else{
-            let node = this.document.querySelector(selector);
+            let node = this._getDom().querySelector(selector);
             if(node){
                 return this.getNodeValue(node);
             }
