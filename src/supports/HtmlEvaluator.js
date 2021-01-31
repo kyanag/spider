@@ -1,21 +1,19 @@
 const jsdom = require("jsdom");
+const jmespath = require("jmespath");
 
 class HtmlEvaluator{
     constructor(response){
         this.response = response;
-        this.document = null;
 
         //this.types = {};
     }
 
-    _getDom(){
-        if(this.document === null){
-            let window = new jsdom.JSDOM(this.response.body).window;
-            this.document = window.document;
-            
-            this.types = window;
+    getDoucment(){
+        if(this.response._window === null){
+            //this.response._window = new jsdom.JSDOM(this.response.body).window;
+            this.types = new jsdom.JSDOM(this.response.body).window;
         }
-        return this.document;
+        return this.types.document;
     }
 
     xpathResultValue(xpath_result, multi = false){
@@ -71,24 +69,32 @@ class HtmlEvaluator{
     }
 
     findXpath(xpath_selector, multi = false){
-        let xpathResult = this._getDom().evaluate(
+        let xpathResult = this.getDoucment().evaluate(
             xpath_selector, //"//title//text()", 
-            this._getDom(), 
+            this.getDoucment(), 
             null,
             this.types.XPathResult.ANY_TYPE
         );
         return this.xpathResultValue(xpathResult, multi);
     }
 
+    findJSONPath(jsonpath, multi = false){
+        let _ = jmespath.search(this.getDoucment().toJSON());
+        if(multi === false && _.constructor == Array){
+            return _[0];
+        }
+        return _;
+    }
+
     *find(selector, multi = false){
         if(multi){
             let _ = [];
-            let _nodeList = this._getDom().querySelectorAll(selector);
+            let _nodeList = this.getDoucment().querySelectorAll(selector);
             for(var node of _nodeList){
                 yield this.getNodeValue(node);
             }
         }else{
-            let node = this._getDom().querySelector(selector);
+            let node = this.getDoucment().querySelector(selector);
             if(node){
                 return this.getNodeValue(node);
             }

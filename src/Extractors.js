@@ -34,12 +34,33 @@ module.exports = {
         }
     },
 
+    json_extractor_factory: function({
+        patterns: {}
+    }){
+        return function({request, response}){
+            let $ = cheerio.load(response.body);
+
+            console.warn("now:", $);
+            //$.document.evaluate("")
+
+            let _ = {};
+            for(let key in selectors){
+                let selector = selectors[key]
+                _[key] = $(selector).html();
+            }
+            return _;
+        }
+    },
+
     //链接抽取器工厂
-    link_extrator_factory: function({patterns = [], }){
+    link_extrator_factory: function({
+        selector = "a[href]",
+        patterns = [], 
+    }){
         return function({request, response}){
             const $ = cheerio.load(response.body);
             
-            return $("a[href]").map( (index, node) => {
+            return $(selector).map( (index, node) => {
                 return $(node).attr("href");
             })
             .toArray()
