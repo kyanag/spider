@@ -6,29 +6,29 @@ module.exports = {
     //xpath抽取器工厂
     xpath_extractor_factory: function(xpath_selectors){
         return function({request, response}){
-            let dom = new HtmlEvaluator(response);
-            //return null;
-
+            let evaluator = new HtmlEvaluator(response);
             let _ = {};
             for(let key in xpath_selectors){
-                let xpath_selector = xpath_selectors[key];
-
-                _[key] = dom.findXpath(xpath_selector);
+                let args = xpath_selectors[key];
+                if(!args instanceof Array){
+                    args = [args];
+                }
+                _[key] = evaluator.findXpath(...args);
             }
             return _;
         }
     },
     query_extractor_factory: function(selectors){
         return function({request, response}){
-            let $ = cheerio.load(response.body);
-
-            console.warn("now:", $);
-            //$.document.evaluate("")
+            let evaluator = new HtmlEvaluator(response);
 
             let _ = {};
             for(let key in selectors){
-                let selector = selectors[key]
-                _[key] = $(selector).html();
+                let args = selectors[key];
+                if(!args instanceof Array){
+                    args = [args];
+                }
+                _[key] = evaluator.find(...args);
             }
             return _;
         }
@@ -38,17 +38,7 @@ module.exports = {
         patterns: {}
     }){
         return function({request, response}){
-            let $ = cheerio.load(response.body);
-
-            console.warn("now:", $);
-            //$.document.evaluate("")
-
-            let _ = {};
-            for(let key in selectors){
-                let selector = selectors[key]
-                _[key] = $(selector).html();
-            }
-            return _;
+            //TODO
         }
     },
 
@@ -58,18 +48,18 @@ module.exports = {
         patterns = [], 
     }){
         return function({request, response}){
-            const $ = cheerio.load(response.body);
+            let evaluator = new HtmlEvaluator(response);
             
-            return $(selector).map( (index, node) => {
-                return $(node).attr("href");
+            return Array.from(
+                evaluator.find(selector, true)
+            )
+            .filter( function(node){
+                return node.href != "";
             })
-            .toArray()
-            .filter( function(link){
-                return link;
+            .map( node => {
+                return url.resolve(request.url, node.href);
             })
-            .map( (link) => {
-                return url.resolve(request.url, link);
-            }).filter( link => {
+            .filter( link => {
                 if(patterns.length == 0){
                     return true;
                 }
@@ -82,22 +72,5 @@ module.exports = {
                 return false;
             });
         };
-    },
-
-    //链接抽取器
-    link_extrator: function({request, response}){
-        console.log("\t链接抽取:", request.url);
-        const $ = cheerio.load(response.body);
-        
-        return $("a[href]").map( (index, node) => {
-            return $(node).attr("href");
-        })
-        .toArray()
-        .filter( function(link){
-            return link;
-        })
-        .map( (link) => {
-            return url.resolve(request.url, link);
-        });
     },
 }

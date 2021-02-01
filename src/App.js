@@ -22,6 +22,8 @@ let resources = [
             headers: {},
             ...
         },
+        _topics: [],
+        _extra_attributes: {},
         _retry: 0,   //重试次数
     },
     */
@@ -47,10 +49,11 @@ class App{
     /**
      * 
      * @param {Object|String} resource      url
-     * @param {String|Array} topics                强制主题
-     * @param {Object} extra_attributes     附加数据   
+     * @param {String|Array} topics         强制主题
+     * @param {Object} extra_attributes     附加数据
+     * @param {String} save_as              保存到地址
      */
-    addResource(resource, topics = null, extra_attributes = undefined){
+    addResource(resource, topics = null, extra_attributes = null){
         if(typeof(topics) == "string"){
             topics = [topics];
         }
@@ -62,9 +65,9 @@ class App{
                     headers: {},
                     timeout: 5000
                 },
-                _topics: topics,                          //强制主题
-                _extra_attributes: extra_attributes,
-                _retry: 0,
+                _topics: topics,                            //强制主题
+                _extra_attributes: extra_attributes,        //附加属性
+                _retry: 0,                                  //重试次数
             }
         }
         resources.push(resource);
@@ -75,7 +78,6 @@ class App{
     createObservable(){
         let onDelay = this.config.requestDelay;
         let onTimeout = this.config.finishDelay;
-
         
         return Rx.interval(onDelay).pipe(
             map( (value, ...args) => {
@@ -97,28 +99,10 @@ class App{
         )
     }
 
-    async download(resource){
-        return await new Promise((resolve, reject) => {
-            try{
-                let request = resource.request;
-
-                this.$eventEmitter.emit("request.start", request, this);
-                httpClient(request, (error, response, body) => {
-                    this.$eventEmitter.emit("request.success", request, response, error, this);
-                    resolve({request, response, error, resource})
-                })
-            }catch(error){
-                //失败自动重试
-                resource._retry += 1;
-                if(resource._retry < this.config.maxRetryNum){
-                    this.addResource(resource);
-                }
-                this.$eventEmitter.emit("request.error", request, error, this);
-                resolve({request, error, resource})
-            }
-        })
-    }
-
+    /**
+     * fetcher:fetch 下载
+     * @param {Object} resource 
+     */
     async fetch(resource){
         return await new Promise((resolve, reject) => {
             try{

@@ -4,12 +4,11 @@ const jmespath = require("jmespath");
 class HtmlEvaluator{
     constructor(response){
         this.response = response;
-
-        //this.types = {};
+        this.types = null;
     }
 
     getDoucment(){
-        if(this.response._window === null){
+        if(this.types === null){
             //this.response._window = new jsdom.JSDOM(this.response.body).window;
             this.types = new jsdom.JSDOM(this.response.body).window;
         }
@@ -80,25 +79,19 @@ class HtmlEvaluator{
 
     findJSONPath(jsonpath, multi = false){
         let _ = jmespath.search(this.getDoucment().toJSON());
-        if(multi === false && _.constructor == Array){
+        if(multi === false && !_ instanceof Array){
             return _[0];
         }
         return _;
     }
 
-    *find(selector, multi = false){
+    find(selector, multi = false){
         if(multi){
-            let _ = [];
-            let _nodeList = this.getDoucment().querySelectorAll(selector);
-            for(var node of _nodeList){
-                yield this.getNodeValue(node);
-            }
+            return Array.from(
+                this.getDoucment().querySelectorAll(selector)
+            );
         }else{
-            let node = this.getDoucment().querySelector(selector);
-            if(node){
-                return this.getNodeValue(node);
-            }
-            return null;
+            return this.getDoucment().querySelector(selector);
         }
     }
 }

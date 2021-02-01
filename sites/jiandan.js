@@ -1,6 +1,10 @@
 const { link_extrator_factory,  xpath_extractor_factory } = require("../src/Extractors.js");
+const url = require("url");
+const fs = require("fs");
 
 let _ = {};
+
+let file_write_stream = fs.createWriteStream("./storage/jiandan.log");
 
 let config = {
     entry: [
@@ -32,7 +36,12 @@ let config = {
             }
             console.log(`--- ${request.url} 结果`);
             if(topic == "ooxx"){
-                console.log(topic, data);
+                let images = data['images'];
+                images.forEach( image => {
+                    image = url.resolve(request.url, image);
+
+                    file_write_stream.write(image + "\n");
+                });
             }
             //console.log(topic, data);
         },
@@ -50,7 +59,7 @@ let config = {
             regex: "",
             extractor: link_extrator_factory({
                 patterns: [
-                    /ooxx[\/a-zA-Z0-9]*/g,
+                    /\/ooxx[\/a-zA-Z0-9]*/g,
                     // /p\/(\d*)$/g,
                     // /page\/(\d*)/g,
                 ]
@@ -68,16 +77,7 @@ let config = {
             topic: "ooxx",  //随手拍
             regex: /ooxx[\/a-zA-Z0-9]*/g,
             extractor: xpath_extractor_factory({
-                'img_src': `//*[contains(@id,'comment-')]/div/div/div[2]/p/a`,
-                //'images': "/html/body/div[5]/a/img/@src"
-            }),
-        },
-        {
-            topic: "article",
-            regex: /p\/(\d*)/g,
-            extractor: xpath_extractor_factory({
-                'title': `//*[@id="content"]/div[2]/h1/a`,
-                'time': `//*[@id="content"]/div[2]/div[1]/text()`,
+                'images': [`//*[contains(@id,'comment-')]/div/div/div[2]/p/a`, true],
                 //'images': "/html/body/div[5]/a/img/@src"
             }),
         },
@@ -85,7 +85,12 @@ let config = {
             topic: "download_file",
             regex: null,
             extractor: function({request, response}, resource){
-                
+                let title = resource._extra_attributes['title'];
+
+                fs.createWriteStream("./storage/1s")
+                console.log("-- ", request.url);
+                console.log(response.headers);
+                this.stop();
             },
         },
     ],
