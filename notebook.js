@@ -1,5 +1,13 @@
 const request = require("request");
 const fs = require("fs");
+const path = require("path");
+
+
+console.log(path.resolve("./storage/jiandan", "image.png"));
+
+return 1;
+
+
 
 let url = "https://pic2.zhimg.com/80/v2-1c40b94dc8bb1984249801565feb0379_720w.jpg";
 const _ = request(url, (error, response, body) => {

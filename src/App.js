@@ -63,7 +63,8 @@ class App{
                     method: "get",
                     url: resource,
                     headers: {},
-                    timeout: 5000
+                    timeout: 5000,
+                    encoding: null,
                 },
                 _topics: topics,                            //强制主题
                 _extra_attributes: extra_attributes,        //附加属性
@@ -108,18 +109,18 @@ class App{
             try{
                 let request = resource.request;
 
-                this.$eventEmitter.emit("request.start", request, this);
+                this.$eventEmitter.emit("request.start", {request}, this);
                 httpClient(request, (error, response, body) => {
-                    this.$eventEmitter.emit("request.success", request, response, error, this);
+                    this.$eventEmitter.emit("request.success", {request, response}, error, this);
                     resolve({request, response, error, resource})
                 })
             }catch(error){
                 //失败自动重试
                 resource._retry += 1;
-                if(resource._retry < this.config.maxRetryNum){
+                if(resource._retry < this.config.max_retry_num){
                     this.addResource(resource);
                 }
-                this.$eventEmitter.emit("request.error", request, error, this);
+                this.$eventEmitter.emit("request.error", {request}, error, this);
                 resolve({request, error, resource})
             }
         })
@@ -154,6 +155,8 @@ class App{
                             record = Object.assign(resource._extra_attributes, record);
                         }
                         this.$eventEmitter.emit("extract.success", route.topic, record, {request, response}, resource, this);
+                    }).catch( error => {
+                        this.$eventEmitter.emit("extract.error", error, this);
                     })
                 }catch(error){
                     this.$eventEmitter.emit("extract.error", error, this);

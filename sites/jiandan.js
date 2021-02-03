@@ -1,19 +1,25 @@
 const { link_extrator_factory,  xpath_extractor_factory } = require("../src/Extractors.js");
 const url = require("url");
 const fs = require("fs");
+const path = require("path");
 
 let _ = {};
 
-let file_write_stream = fs.createWriteStream("./storage/jiandan.log");
-
 let config = {
+    id: "jiandan",
     entry: [
         "http://jandan.net/",
     ],
-    maxRetryNum: 5,
+    workdir: path.resolve("./storage/", "jiandan"),
+    max_retry_num: 5,
     listeners:{
         "app.before-start": function(app){
-
+            if(!fs.existsSync("./storage/jiandan")){
+                fs.mkdirSync("./storage/jiandan");
+            }
+            if(!fs.existsSync("./storage/jiandan/images")){
+                fs.mkdirSync("./storage/jiandan/images");
+            }
         },
         "app.before-stop": function(app){
             
@@ -24,24 +30,28 @@ let config = {
         "request.start": function(request){
             //console.log(`--- ${request.url} 开始`);
         },
-        "request.success": function(request, response, error){
+        "request.success": function({request, response}, error){
             //console.log(response.body);
         },
-        "request.error": function(request, error){
+        "request.error": function({request}, error){
             //console.log(`\t${request.url} 失败`);
         },
-        "extract.success": function(topic, data, {request, response}, app){
+        "extract.success": function(topic, data, {request, response}, resource, app){
             if(topic == "link"){
                 return;
             }
-            console.log(`--- ${request.url} 结果`);
+            //console.log(`--- ${request.url} 结果`);
             if(topic == "ooxx"){
                 let images = data['images'];
                 images.forEach( image => {
                     image = url.resolve(request.url, image);
 
-                    file_write_stream.write(image + "\n");
+                    app.addResource(image, "download", {
+                        '_filename': path.resolve("./storage/jiandan/images", path.basename(image)),
+                    });
                 });
+            }else if(topic == "download"){
+                console.log("downloaded:", data);
             }
             //console.log(topic, data);
         },
@@ -77,20 +87,25 @@ let config = {
             topic: "ooxx",  //随手拍
             regex: /ooxx[\/a-zA-Z0-9]*/g,
             extractor: xpath_extractor_factory({
-                'images': [`//*[contains(@id,'comment-')]/div/div/div[2]/p/a`, true],
+                'images': [`//*[contains(@id,'comment-')]/div/div/div[2]/p/a/@href`, true],
                 //'images': "/html/body/div[5]/a/img/@src"
             }),
         },
         {
-            topic: "download_file",
+            topic: "download",
             regex: null,
+            /**
+             * 
+             * @param {Request, Response} param0 
+             * @param {Array} resource 
+             */
             extractor: function({request, response}, resource){
-                let title = resource._extra_attributes['title'];
-
-                fs.createWriteStream("./storage/1s")
-                console.log("-- ", request.url);
-                console.log(response.headers);
-                this.stop();
+                let save_as = resource._extra_attributes['_filename'];
+                //console.log(response.headers['content-type']);
+                fs.writeFileSync(save_as, response.body);
+                return {
+                    save_as
+                };
             },
         },
     ],
