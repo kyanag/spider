@@ -10,10 +10,9 @@ let config = {
     entry: [
         "http://jandan.net/",
     ],
-    workdir: path.resolve("./storage/", "jiandan"),
     max_retry_num: 5,
     listeners:{
-        "app.before-start": function(app){
+        "app.before-start": function(){
             if(!fs.existsSync("./storage/jiandan")){
                 fs.mkdirSync("./storage/jiandan");
             }
@@ -21,10 +20,10 @@ let config = {
                 fs.mkdirSync("./storage/jiandan/images");
             }
         },
-        "app.before-stop": function(app){
+        "app.before-stop": function(){
             
         },
-        "app.error": function(app, error){
+        "app.error": function(error){
             
         },
         "request.start": function(request){
@@ -34,9 +33,9 @@ let config = {
             //console.log(response.body);
         },
         "request.error": function({request}, error){
-            //console.log(`\t${request.url} 失败`);
+            console.log(`\t${request.url} 失败`);
         },
-        "extract.success": function(topic, data, {request, response}, resource, app){
+        "extract.success": function(topic, data, {request, response}, resource){
             if(topic == "link"){
                 return;
             }
@@ -46,7 +45,7 @@ let config = {
                 images.forEach( image => {
                     image = url.resolve(request.url, image);
 
-                    app.addResource(image, "download", {
+                    this.addResource(image, "download", {
                         '_filename': path.resolve("./storage/jiandan/images", path.basename(image)),
                     });
                 });

@@ -1,9 +1,9 @@
 const httpClient = require("request");
-const Rx = require("rxjs");
-const { map, filter, timeout, concatMap } = require("rxjs/operators");
+const { filter, concatMap } = require("rxjs/operators");
 const EventEmitter = require('events');
 const lodash = require("lodash");
 
+const { createWorkflow, Queue } = require("./Core.js");
 
 Function.prototype.addDecorator = function(now){
     let last = this;
@@ -12,33 +12,43 @@ Function.prototype.addDecorator = function(now){
         return now.call(this, _);
     }
 }
-
-let resources = [
-    /* 
+/* 
+    队列内容
     {
-        reqOtions<request.TOptions>: {
+        request<request.TOptions>: {    //请求参数
             method: "get",
             url: "",
             headers: {},
             ...
         },
-        _topics: [],
-        _extra_attributes: {},
+        _topics: [],                    //强制主题
+        _extra_attributes: {},          //附加属性
         _retry: 0,   //重试次数
     },
-    */
-];
+*/
 
-class App{
+class App extends EventEmitter{
+    id
+    max_retry_num = 5
+    interval = 1000             
+    timeout = 10000
+
     constructor(config){
-        this.$eventEmitter = new EventEmitter();
+        super();
 
-        //加载事件处理器
+        this.id = config.id;
+        this.max_retry_num = config.max_retry_num;
+        this.interval = config.interval;
+        this.timeout = config.timeout;
+
+        //加载事件
         let listeners = config.listeners || {};
         for(let name in listeners){
-            this.$eventEmitter.on(name, listeners[name]);
+            this.on(name, listeners[name].bind(this));
         }
 
+        //初始化队列
+        this._queue = new Queue();
         config.entry.forEach( (url) => {
             this.addResource(url);
         });
@@ -71,33 +81,20 @@ class App{
                 _retry: 0,                                  //重试次数
             }
         }
-        resources.push(resource);
+        this._queue.push(resource);
 
-        this.$eventEmitter.emit("resource.push", resource, this);
+        this.emit("resource.push", resource);
     }
 
     createObservable(){
-        let onDelay = this.config.requestDelay;
-        let onTimeout = this.config.finishDelay;
-        
-        return Rx.interval(onDelay).pipe(
-            map( (value, ...args) => {
-                if(resources.length > 0){
-                    return resources.shift();
-                }
-                return null;
-            }),
-            filter( (value) => {
-                return value !== null;
-            }),
-            timeout(onTimeout),
+        return createWorkflow(this._queue, this.interval, this.timeout).pipe(
             concatMap( (resource) => {
                 return this.fetch(resource);
             }),
             filter( ({request, response = null, error}) => {
                 return error == null;
             }),
-        )
+        );
     }
 
     /**
@@ -109,30 +106,30 @@ class App{
             try{
                 let request = resource.request;
 
-                this.$eventEmitter.emit("request.start", {request}, this);
+                this.emit("request.start", {request});
                 httpClient(request, (error, response, body) => {
-                    this.$eventEmitter.emit("request.success", {request, response}, error, this);
+                    this.emit("request.success", {request, response}, error);
                     resolve({request, response, error, resource})
                 })
             }catch(error){
                 //失败自动重试
                 resource._retry += 1;
-                if(resource._retry < this.config.max_retry_num){
+                if(resource._retry < this.max_retry_num){
                     this.addResource(resource);
                 }
-                this.$eventEmitter.emit("request.error", {request}, error, this);
+                this.emit("request.error", {request}, error);
                 resolve({request, error, resource})
             }
         })
     }
 
     stop(){
-        this.$eventEmitter.emit("app.before-stop", this);
+        this.emit("app.before-stop");
         this.subscription.unsubscribe();
     }
 
     run(){
-        this.$eventEmitter.emit("app.before-start", this);
+        this.emit("app.before-start");
 
         this.subscription = this.createObservable().subscribe( ( {request, response = null, error, resource} ) => {
             this.config.routes.filter( (route) => {
@@ -154,16 +151,16 @@ class App{
                         if(resource._extra_attributes){
                             record = Object.assign(resource._extra_attributes, record);
                         }
-                        this.$eventEmitter.emit("extract.success", route.topic, record, {request, response}, resource, this);
+                        this.emit("extract.success", route.topic, record, {request, response}, resource);
                     }).catch( error => {
-                        this.$eventEmitter.emit("extract.error", error, this);
+                        this.emit("extract.error", error);
                     })
                 }catch(error){
-                    this.$eventEmitter.emit("extract.error", error, this);
+                    this.emit("extract.error", error);
                 }
             });
         }, (error) => {
-            this.$eventEmitter.emit("app.error", error, this);
+            this.emit("app.error", error);
         });
     }
 }

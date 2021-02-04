@@ -1,10 +1,20 @@
 const request = require("request");
 const fs = require("fs");
 const path = require("path");
+const EventEmitter = require('events');
 
+class Test extends EventEmitter{
+    constructor(){
+        super();
+        this.on("ase", function(){
+            console.log("event twiggered!");
+            console.log(this);
+        }.bind(this));
+    }
+}
 
-console.log(path.resolve("./storage/jiandan", "image.png"));
-
+let t = new Test();
+t.emit("ase");
 return 1;
 
 
