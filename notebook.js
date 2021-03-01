@@ -1,8 +1,11 @@
+const fetch = require("node-fetch");
 const request = require("request");
 const fs = require("fs");
 const path = require("path");
 const EventEmitter = require('events');
 
+console.log(fetch);
+return;
 class Test extends EventEmitter{
     constructor(){
         super();

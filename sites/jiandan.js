@@ -9,9 +9,21 @@ let config = {
     id: "jiandan",
     entry: [
         "http://jandan.net/",
+        "http://jandan.net/abc",
+        "httpa://jandan.net/abc"
     ],
     max_retry_num: 5,
     listeners:{
+        // ["resource.push"] : Function,           //resource 入队
+        // ["resource.shift"] : Function,          //resource 出队 - 超过最大次数或者被主动抛弃
+        // ["resource.ready"] : Function,          //resource 发出请求之前
+        // ["resource.responded"]: Function,        //resource.request 返回结果
+        // ["resource.success"] : Function,        //resource request成功，且状态码为20x
+        // ["resource.warning"] : Function,        //resource http请求成功，但是状态码不对
+        // ["resource.fail"] : Function,           //resource 请求失败
+
+        // ["extract.success"] : Function,          //抽取器 抽取数据成功
+        // ["extract.fail"] : Function,             //抽取器 抽取失败
         "app.before-start": function(){
             if(!fs.existsSync("./storage/jiandan")){
                 fs.mkdirSync("./storage/jiandan");
@@ -20,22 +32,37 @@ let config = {
                 fs.mkdirSync("./storage/jiandan/images");
             }
         },
+        "app.ready": function(){
+            
+        },
         "app.before-stop": function(){
             
         },
         "app.error": function(error){
-            
+            console.log(`app-error: ${JSON.stringify(error)}`);
         },
-        "request.start": function(request){
+        "resource.push": function(resource){
+            console.log(`入队: ${resource.request.url}`);
+        },
+        "resource.ready": function(resource){
             //console.log(`--- ${request.url} 开始`);
         },
-        "request.success": function({request, response}, error){
-            //console.log(response.body);
+        "resource.shift": function(resource){
+            //console.log(`--- ${request.url} 开始`);
         },
-        "request.error": function({request}, error){
-            console.log(`\t${request.url} 失败`);
+        "resource.responded": function(resource){
+            //console.log(resource.response.body);
         },
-        "extract.success": function(topic, data, {request, response}, resource){
+        "resource.success": function(resource){
+            console.log(`success: ${resource.request.url}`);
+        },
+        "resource.warning": function(resource){
+            console.log(`warning: ${resource.request.url}`);
+        },
+        "resource.fail": function(resource, error){
+            console.log(`fail: ${resource.request.url}`);
+        },
+        "extract.success": function(data, handler, resource){
             if(topic == "link"){
                 return;
             }
@@ -54,13 +81,9 @@ let config = {
             }
             //console.log(topic, data);
         },
-        "extract.error": function(error){
+        "extract.fail": function(route, resource){
             console.log(error);
         },
-        "resource.push": function(resource){
-            //_[resource.request.url] = true;
-            //console.log(`入队: ${resource.request.url}`);
-        }
     },
     routes: [
         {
@@ -108,8 +131,8 @@ let config = {
             },
         },
     ],
-    requestDelay: 1 * 1000,             //请求间隔时间
-    finishDelay: 10 * 1000,             //队列空置 ${x} 微秒后退出
+    interval: 1 * 1000,             //请求间隔时间
+    timeout: 10 * 1000,             //队列空置 ${x} 微秒后退出
 };
 
 module.exports = config;

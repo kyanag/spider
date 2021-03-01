@@ -1,5 +1,4 @@
 const url = require("url");
-const cheerio = require("cheerio");
 const HtmlEvaluator = require("./supports/HtmlEvaluator.js")
 
 module.exports = {
