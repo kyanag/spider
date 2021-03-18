@@ -1,42 +1,18 @@
 const fetch = require("node-fetch");
-const request = require("request");
 const fs = require("fs");
 const path = require("path");
 const EventEmitter = require('events');
+const HtmlEv = require("./src/HtmlEvaluator.js");
 
-console.log(fetch);
-return;
-class Test extends EventEmitter{
-    constructor(){
-        super();
-        this.on("ase", function(){
-            console.log("event twiggered!");
-            console.log(this);
-        }.bind(this));
-    }
-}
-
-let t = new Test();
-t.emit("ase");
+fetch("https://www.cnblogs.com/zjh-study/p/10650648.html").then( response => {
+    response.text().then( t => {
+        let h = new HtmlEv(t);
+        console.log(h.find("a"));
+    })
+})
 return 1;
 
 
-
-let url = "https://pic2.zhimg.com/80/v2-1c40b94dc8bb1984249801565feb0379_720w.jpg";
-const _ = request(url, (error, response, body) => {
-    console.log("fetched!");
-    let filename = './storage/doodle.png';
-    _.pipe(fs.createWriteStream(filename));
-    console.log("file: exists?", fs.existsSync(filename));
-
-    console.log(_.constructor);
-
-    setTimeout(function(){
-        //fs.unlinkSync(filename);
-    }, 1000)
-});
-
-return;
 Function.prototype.applyDecorator = function(func){
     let nowFunc = this;
     return function(...args){
