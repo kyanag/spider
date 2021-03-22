@@ -3,3 +3,4 @@
 *.nogit.*
 storage
 /build
+/.vscode

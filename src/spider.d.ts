@@ -20,11 +20,29 @@ type Filter<T> = {
     add: (T) => void,                   //过滤器插入
 }
 
+interface IRequest{
+    url: string,
+    headers?: Map<string, string>,
+}
+
+interface IResponse{
+    ok: boolean,
+    url: string,
+    status: number,
+    statusText: string,
+    headers: Map<string, string>,
+    body: string,
+    raw: any,
+}
+
+interface RequestProvider{
+    fetch(request: IRequest, timeout: number): Promise<IResponse>
+}
+
 interface Resource{
-    request: FetchRequest,
-    response?: FetchResponse,
+    request: IRequest,
+    response?: IResponse,
     error?: any,
-    html?: string,
     _topics: Array<string>,
     _extra_attributes: any,
     _retry: number, 
@@ -32,7 +50,7 @@ interface Resource{
 
 interface Handler{
     topic: string,
-    regex: string | RegExp,
+    regex: string | RegExp | null,
     extractor: (resource: Resource) => Promise<any> | any,
 }
 
@@ -67,12 +85,8 @@ interface Events{
     ["resource.shift"] : (app: App, resource: Resource) => void,
     //resource 发出请求之前
     ["resource.ready"] : (app: App, resource: Resource) => void,
-    //resource request 返回结果
+    //resource request 返回结果 无论状态码是多少
     ["resource.responded"]: (app: App, resource: Resource) => void,
-    //resource request 成功，且状态码为20x
-    ["resource.success"] : (app: App, resource: Resource) => void,
-    //resource request 成功，但状态码不为20x
-    ["resource.warning"] : (app: App, resource: Resource) => void,
     //resource 请求失败
     ["resource.fail"] : (app: App, resource: Resource, error: any) => void,               
 

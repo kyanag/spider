@@ -3,9 +3,7 @@ const { map, filter, timeout, concatMap } = require("rxjs/operators");
 const EventEmitter = require('events');
 const lodash = require("lodash");
 
-const fetch = require("node-fetch");
-const {Request, Response, Headers} = fetch;
-const AbortController = require("abort-controller");
+const { FetchRequester } = require("./supports/RequestProvider");
 
 // @ts-ignore
 Function.prototype.addDecorator = function(now: Function): Function{ 
@@ -23,6 +21,8 @@ class App extends EventEmitter{
     id: string
     private _config: Config;
 
+    private _requestProvider: RequestProvider;
+
     constructor(config: Config){
         super();
 
@@ -35,6 +35,9 @@ class App extends EventEmitter{
             let handler = listeners[name];
             this.on(name, handler);
         }
+
+        //@ts-ignore
+        this._requestProvider = new FetchRequester();
     }
 
     buildResource(url: string, topics: Array<string> = [], extra_attributes = null): Resource{
@@ -42,7 +45,9 @@ class App extends EventEmitter{
             topics = [topics];
         }
         let resource = {
-            request: new Request(url),
+            request: {
+                url
+            },
             _topics: topics,                            //强制主题
             _extra_attributes: extra_attributes,        //附加属性
             _retry: 0,                                  //重试次数
@@ -98,37 +103,37 @@ class App extends EventEmitter{
     async fetch(resource: Resource, timeout: number = 2000): Promise<Resource>{
         this.emit("resource.ready", this, resource);
 
-        const controller = new AbortController();
-        const seed = setTimeout(() => { 
-            controller.abort(); 
-        }, timeout);
-        return fetch(resource.request, { signal: controller.signal }).then( (response: Response) => {
-                resource.response = response;
-                this.emit("resource.responded", this, resource);
-                return resource;
-            }).catch( (error: Error) => {
-                this.emit("resource.fail", this, resource, error);
-                this.retry(resource);
-                return resource;
-            }).finally(() => {
-                clearTimeout(seed);
-            });
+        return this._requestProvider.fetch(resource.request, timeout).then( (response: IResponse) => {
+            resource.response = response;
+            this.emit("resource.responded", this, resource);
+            return resource;
+        }).catch( (error:any) => {
+            this.emit("resource.fail", this, resource, error);
+            this.retry(resource);
+            return resource;
+        });
+
+        // return fetch(resource.request, { signal: controller.signal }).then( (response: FetchResponse) => {
+        //         resource.response = response;
+        //         this.emit("resource.responded", this, resource);
+        //         return resource;
+        //     }).catch( (error: Error) => {
+        //         this.emit("resource.fail", this, resource, error);
+        //         this.retry(resource);
+        //         return resource;
+        //     }).finally(() => {
+        //         clearTimeout(seed);
+        //     });
     }
 
     run(){
         this.emit("app.ready", this);
         this.subscription = this.createObservable().pipe(
-            concatMap((resource: Resource) => {
+            concatMap(async (resource: Resource) => {
                 this.emit("resource.before-fetch", this, resource);
                 return this.fetch(resource).then( (resource:Resource) => {
                     if(resource.response === undefined){
                         return null;
-                    }
-                    this.emit("resource.responded", this, resource);
-                    if(resource.response.ok){
-                        this.emit("resource.success", this, resource);
-                    }else{
-                        this.emit("resource.warning", this, resource);
                     }
                     return resource;
                 })
@@ -140,6 +145,9 @@ class App extends EventEmitter{
             this._config.extractors.filter( (handler: Handler) => {
                 if(lodash.indexOf(resource._topics, handler.topic) >= 0){
                     return true;
+                }
+                if(handler.regex === null){
+                    return false;
                 }
                 return resource.request.url.match(handler.regex) != null;
             }).forEach( (handler: Handler) => {

@@ -45,16 +45,11 @@ let config: Config = {
             //console.log(`--- ${request.url} 开始`);
         },
         "resource.responded": function(app: App, resource:Resource){
+            //@ts-ignore
             //console.log(resource.response.body);
         },
-        "resource.success": function(app: App, resource:Resource){
-            let save_as = path.resolve("./storage/jiandan/html/", path.basename(resource.request.url));
-        },
-        "resource.warning": function(app: App, resource:Resource){
-            console.log(`resource.warning: ${resource.request.url}`);
-        },
         "resource.fail": function(app: App, resource:Resource, error: any){
-            console.log(`resource.fail: ${resource.request.url}`);
+            console.log(`resource.fail: ${resource.request.url}`, error);
         },
         "extract.success": function(app: App, topic: string, data: any, resource: Resource, handler: Handler){
             console.log(`extract.success:  ${topic}:`, data);
@@ -69,6 +64,7 @@ let config: Config = {
                     let newResource = app.buildResource(image, ["download"], {
                         '_filename': path.resolve("./storage/jiandan/images", path.basename(image)),
                     })
+                    //console.log("download-debug: ", newResource._extra_attributes['_filename']);
                     app.addResource(newResource);
                 });
             }else if(topic == "download"){
@@ -114,7 +110,7 @@ let config: Config = {
         },
         {
             topic: "download",
-            regex: "",
+            regex: null,
             /**
              * 
              * @param {Request, Response} param0 
@@ -124,7 +120,7 @@ let config: Config = {
                 let save_as = resource._extra_attributes['_filename'];
                 //console.log(response.headers['content-type']);
                 // @ts-ignore
-                fs.writeFileSync(save_as, resource.response.body);
+                fs.writeFileSync(save_as, resource.response.raw);
                 return {
                     save_as
                 };

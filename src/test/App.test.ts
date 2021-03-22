@@ -23,7 +23,7 @@ describe('App', function() {
 
               let timediff = (nowtime - time) / timeout;
               let ratio = timediff >= 0.9 && timediff <= 1.1
-              console.log(`start:${time/1000}; end:${nowtime/1000}; ${timediff}`, timediff >= 1 && timediff <= 1.1);
+              //console.log(`start:${time/1000}; end:${nowtime/1000}; ${timediff}`, timediff >= 1 && timediff <= 1.1);
 
               assert.ok(ratio);
           })
