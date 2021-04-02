@@ -1,6 +1,3 @@
-import { rejects } from "assert";
-import { file } from "../../test/App.test";
-
 const nodeFetch = require("node-fetch");
 const {
     Request, 
@@ -14,7 +11,7 @@ export class FetchRequester implements RequestProvider{
     fetch(irequest: IRequest, timeout: number = 2000): Promise<IResponse>{
         const controller = new AbortController();
         const seed = setTimeout(() => { 
-            controller.abort(); 
+            controller.abort();
         }, timeout);
 
         let request = this.createRequest(irequest);
@@ -29,24 +26,23 @@ export class FetchRequester implements RequestProvider{
     private createRequest(irequest: IRequest){
         return new Request(irequest.url);
     }
-
-    private async toIResponse(response: FetchResponse): Promise<IRequest>{
-        let blob = await response.blob();
-        let body = await blob.text();
-
+    
+    private async toIResponse(response: FetchResponse): Promise<IResponse>{
         let iresponse: IResponse = {
             ok: response.ok,
             url: response.url,
             headers: this.headerToMap(response.headers),
             status: response.status,
             statusText: response.statusText,
-            body: body,
-            raw: blob,
+            body: response.body,
         };
+        if(iresponse.headers.has("content-type") && iresponse.headers.get('content-type')?.match(/^text.*/g)){
+            iresponse.text = await response.text();
+        }
         return iresponse;
     }
 
-    private async blobToString(blob: Blob, encoding = "utf-8"): Promise<string>{
+    private async blobResolve(blob: Blob): Promise<any>{
         return new Promise((resolve, reject) => {
             let fileReader = new FileReader();
             fileReader.onload = (evt) => {
@@ -61,9 +57,9 @@ export class FetchRequester implements RequestProvider{
         })
     }
 
-    private headerToMap(headers: Headers){
+    private headerToMap(headers: FetchHeaders){
         let map = new Map<string, string>();
-        headers.forEach( (value, key, parent) => {
+        headers.forEach( (value, key) => {
             map.set(key, value);
         })
         return map;

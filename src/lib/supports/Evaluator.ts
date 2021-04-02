@@ -1,16 +1,6 @@
 import jsdom from "jsdom";
 import jmespath from "jmespath";
 
-let {
-    Document,
-    XPathResult,
-    Attr,
-    Text,
-    HTMLAnchorElement,
-    HTMLImageElement,
-    HTMLElement,
-} = new jsdom.JSDOM().window;
-
 let getNodeValue = function(node: Element){
    if(node instanceof Attr){
        return node.value;
@@ -65,7 +55,7 @@ class Extractor{
 
     getWindow(): jsdom.DOMWindow{
         if(this._window === undefined){
-            this._window = new jsdom.JSDOM(this._response.body).window;
+            this._window = new jsdom.JSDOM(this._response.text).window;
         }
         return this._window;
     }
@@ -85,7 +75,7 @@ class Extractor{
     }
 
     findByJSONPath(jsonpath: string){
-        let json = JSON.parse(this._response.body);
+        let json = JSON.parse(this._response?.text ?? "");
         return jmespath.search(json, jsonpath);
     }
 

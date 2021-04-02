@@ -1,12 +1,12 @@
-const Rx = require("rxjs");
-const { map, filter, timeout, concatMap } = require("rxjs/operators");
-const EventEmitter = require('events');
-const lodash = require("lodash");
+import Rx from "rxjs";
+import { map, filter, timeout, concatMap } from "rxjs/operators";
+import EventEmitter from "events";
+import lodash from "lodash";
 
 const { FetchRequester } = require("./supports/RequestProvider");
 
-// @ts-ignore
-Function.prototype.addDecorator = function(now: Function): Function{ 
+
+Function.prototype.addDecorator = function(now: (...args: any[]) => any): (...args: any[]) => any{ 
     let last:Function = this;                                       
     return async function(...args: any[]){
         // @ts-ignore
@@ -17,12 +17,13 @@ Function.prototype.addDecorator = function(now: Function): Function{
 }
 
 
-class App extends EventEmitter{
+export default class App extends EventEmitter{
     id: string
     private _config: Config;
 
     private _requestProvider: RequestProvider;
 
+    private subscription: any;
     constructor(config: Config){
         super();
 
@@ -66,7 +67,7 @@ class App extends EventEmitter{
         this.emit("resource.push", this, resource);
     }
 
-    createWorkflow(queue: Queue<Resource>, onInterval: number, onTimeout: number){
+    createWorkflow(queue: Queue<Resource>, onInterval: number, onTimeout: number): Rx.Observable<Resource>{
         return Rx.interval(onInterval).pipe(
             map( () => {
                 try{
@@ -75,6 +76,7 @@ class App extends EventEmitter{
                     return null;
                 }
             }),
+            // @ts-ignore
             filter( (value: Resource | null) => {
                 return value !== null;
             }),
@@ -82,8 +84,22 @@ class App extends EventEmitter{
         )
     }
 
-    createObservable(){
-        return this.createWorkflow(this._config.queue, this._config.interval, this._config.timeout);
+    createObservable(): Rx.Observable<Resource>{
+        //@ts-ignore
+        return this.createWorkflow(this._config.queue, this._config.interval, this._config.timeout).pipe(
+            concatMap(async (resource: Resource) => {
+                this.emit("resource.before-fetch", this, resource);
+                return this.fetch(resource).then( (resource:Resource) => {
+                    if(resource.response === undefined){
+                        return null;
+                    }
+                    return resource;
+                })
+            }),
+            filter( (value: Resource | null) => {
+                return value !== null;
+            })
+        );
     }
 
     retry(resource: Resource){
@@ -112,64 +128,42 @@ class App extends EventEmitter{
             this.retry(resource);
             return resource;
         });
-
-        // return fetch(resource.request, { signal: controller.signal }).then( (response: FetchResponse) => {
-        //         resource.response = response;
-        //         this.emit("resource.responded", this, resource);
-        //         return resource;
-        //     }).catch( (error: Error) => {
-        //         this.emit("resource.fail", this, resource, error);
-        //         this.retry(resource);
-        //         return resource;
-        //     }).finally(() => {
-        //         clearTimeout(seed);
-        //     });
     }
 
     run(){
         this.emit("app.ready", this);
-        this.subscription = this.createObservable().pipe(
-            concatMap(async (resource: Resource) => {
-                this.emit("resource.before-fetch", this, resource);
-                return this.fetch(resource).then( (resource:Resource) => {
-                    if(resource.response === undefined){
-                        return null;
+        this.subscription = this.createObservable().subscribe(
+            (resource: Resource) => {
+                this._config.extractors.filter( (handler: Handler) => {
+                    if(lodash.indexOf(resource._topics, handler.topic) >= 0){
+                        return true;
                     }
-                    return resource;
+                    if(handler.regex === null){
+                        return false;
+                    }
+                    return resource.request.url.match(handler.regex) != null;
+                }).forEach( (handler: Handler) => {
+                    try{
+                        let extractor = handler.extractor;
+                        Promise.resolve(
+                            extractor.call(this, resource)
+                        ).then( record => {
+                            if(resource._extra_attributes){
+                                record = Object.assign(resource._extra_attributes, record);
+                            }
+                            this.emit("extract.success", this, handler.topic, record, resource, handler);
+                        }).catch( error => {
+                            this.emit("extract.fail", this, resource, handler, error);
+                        })
+                    }catch(error){
+                        this.emit("extract.error", this, resource, handler, error);
+                    }
                 })
-            }),
-            filter( (value: Resource | null) => {
-                return value !== null;
-            })
-        ).subscribe( (resource: Resource) => {
-            this._config.extractors.filter( (handler: Handler) => {
-                if(lodash.indexOf(resource._topics, handler.topic) >= 0){
-                    return true;
-                }
-                if(handler.regex === null){
-                    return false;
-                }
-                return resource.request.url.match(handler.regex) != null;
-            }).forEach( (handler: Handler) => {
-                try{
-                    let extractor = handler.extractor;
-                    Promise.resolve(
-                        extractor.call(this, resource)
-                    ).then( record => {
-                        if(resource._extra_attributes){
-                            record = Object.assign(resource._extra_attributes, record);
-                        }
-                        this.emit("extract.success", this, handler.topic, record, resource, handler);
-                    }).catch( error => {
-                        this.emit("extract.fail", this, resource, handler, error);
-                    })
-                }catch(error){
-                    this.emit("extract.error", this, resource, handler, error);
-                }
-            })
-        }, (error: any) => {
-            this.emit("app.error", this, error);
-        });
+            }, 
+            (error: any) => {
+                this.emit("app.error", this, error);
+            }
+        );
     }
 
     stop(){
@@ -177,5 +171,3 @@ class App extends EventEmitter{
         this.subscription.unsubscribe();
     }
 }
-
-export = App;

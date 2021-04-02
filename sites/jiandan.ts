@@ -1,11 +1,10 @@
-import { exit } from "node:process";
+import { link_extrator_factory,  xpath_extractor_factory } from "../src/lib/Extractors"
 
-const { link_extrator_factory,  xpath_extractor_factory } = require("../src/lib/Extractors");
 const url = require("url");
 const fs = require("fs-extra");
 const path = require("path");
 
-let filter: Map<string, boolean> = new Map<string, boolean>();
+let filter: Set<Resource> = new Set<Resource>();
 
 let queue = new Array<Resource>();
 
@@ -74,25 +73,19 @@ let config: Config = {
         "extract.fail": function(app: App, resource, handler, error){
             console.log(error);
         },
-        "extract.error": function(app: App, resource: Resource, handler: Handler, error: any){
-            console.log(error);
-        },
     },
     extractors: [
         {
             topic: "link",
             regex: "",
-            extractor: link_extrator_factory({
-                patterns: [
-                    /\/ooxx[\/a-zA-Z0-9]*/g,
-                ]
-            }).addDecorator(function(links: Array<string>){
+            extractor: link_extrator_factory("a[href]", [
+                /\/ooxx[\/a-zA-Z0-9]*/g,
+            ]).addDecorator(function(links: Array<string>){
                 links.forEach( link => {
-                    if(!filter.has(link)){
-                        filter.set(link, true);
-                        
-                        // @ts-ignore
-                        let resource = this.buildResource(link);
+                    // @ts-ignore
+                    let resource = this.buildResource(link);
+                    if(!filter.has(resource)){
+                        filter.add(resource);
                         // @ts-ignore
                         this.addResource(resource);
                     }

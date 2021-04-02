@@ -1,16 +1,19 @@
 import assert from "assert";
 import {FetchRequester} from "../../lib/supports/RequestProvider"
+import { get_class } from "../function";
+const db = require("mime-db");
+
 
 describe('RequestProvider', function() {
     it('@RequestByFetch', async function() {
         let requester = new FetchRequester();
 
         let irequest: IRequest = {
-            url: "http://wx3.sinaimg.cn/large/0089jzyPgy1gos0alobsjj30u01401kx.jpg",
+            url: "https://www.zhihu.com/question/400286737/answer/1272247244",
         }
         requester.fetch(irequest).then( response => {
-            console.log("raw:", response.raw);
-            console.log("body:", response.body);
+            //console.log("headers:", response.headers);
+            console.log("", get_class(response.body));
         }).catch( error => {
             console.log("111:", error);
         });

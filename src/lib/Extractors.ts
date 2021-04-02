@@ -41,36 +41,33 @@ export function json_extractor_factory(selectors: StringIndexTypes<any>){
         }
         return _;
     }
-    }
+}
 
-export function link_extrator_factory({
-        selector = "a[href]",
-        patterns = [], 
-    }): Function{
-        return function(resource: Resource){
-            // @ts-ignore
-            let evaluator = new Evaluator(resource.response);
-            let elements = evaluator.find(selector);
-            
-            // @ts-ignore
-            return Array.from(elements).filter( (node: HTMLAnchorElement) => {
-                return node.href != "";
-            })
-            // @ts-ignore
-            .map( (node: HTMLAnchorElement) => {
-                return url.resolve(resource.request.url, node.href);
-            })
-            .filter( (link: string) => {
-                if(patterns.length == 0){
+export function link_extrator_factory(selector:string = "a[href]", patterns: RegExp[] = []): Function{
+    return function(resource: Resource){
+        // @ts-ignore
+        let evaluator = new Evaluator(resource.response);
+        let elements = evaluator.find(selector);
+        
+        // @ts-ignore
+        return Array.from(elements).filter( (node: HTMLAnchorElement) => {
+            return node.href != "";
+        })
+        // @ts-ignore
+        .map( (node: HTMLAnchorElement) => {
+            return url.resolve(resource.request.url, node.href);
+        })
+        .filter( (link: string) => {
+            if(patterns.length == 0){
+                return true;
+            }
+            for(let i in patterns){
+                let pattern = patterns[i];
+                if(link.match(pattern) != null){
                     return true;
                 }
-                for(let i in patterns){
-                    let pattern = patterns[i];
-                    if(link.match(pattern) != null){
-                        return true;
-                    }
-                }
-                return false;
-            });
-        };
-    }
+            }
+            return false;
+        });
+    };
+}
