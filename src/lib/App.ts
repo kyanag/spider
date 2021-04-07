@@ -1,29 +1,42 @@
-import Rx from "rxjs";
-import { map, filter, timeout, concatMap } from "rxjs/operators";
+import { Observable, Subject, asapScheduler, pipe, of, from, interval, merge, fromEvent } from 'rxjs';
+import { map, filter, timeout, concatMap} from "rxjs/operators";
 import EventEmitter from "events";
 import lodash from "lodash";
 
 const { FetchRequester } = require("./supports/RequestProvider");
 
+// @ts-ignore
+Function.prototype.addMiddleware = function(middleware: (input: any, next: Function) => any): Function{                               
+    let core = this;
+    return async function(input: any){
+        //@ts-ignore
+        return middleware.call(this, input, core);
+        
+        // @ts-ignore
+        let _ = await Promise.resolve(last.call(this, ...args));
+        // @ts-ignore
+        return middleware.call(this, _);
+    }
+}
 
-Function.prototype.addDecorator = function(now: (...args: any[]) => any): (...args: any[]) => any{ 
+Function.prototype.then = function(next: (...args: any[]) => any): (...args: any[]) => any{ 
     let last:Function = this;                                       
     return async function(...args: any[]){
         // @ts-ignore
         let _ = await Promise.resolve(last.call(this, ...args));
         // @ts-ignore
-        return now.call(this, _);
+        return next.call(this, _);
     }
 }
 
-
-export default class App extends EventEmitter{
+export class App extends EventEmitter{
     id: string
     private _config: Config;
 
     private _requestProvider: RequestProvider;
 
     private subscription: any;
+    
     constructor(config: Config){
         super();
 
@@ -36,39 +49,17 @@ export default class App extends EventEmitter{
             let handler = listeners[name];
             this.on(name, handler);
         }
-
         //@ts-ignore
         this._requestProvider = new FetchRequester();
     }
 
-    buildResource(url: string, topics: Array<string> = [], extra_attributes = null): Resource{
-        if(typeof(topics) == "string"){
-            topics = [topics];
-        }
-        let resource = {
-            request: {
-                url
-            },
-            _topics: topics,                            //强制主题
-            _extra_attributes: extra_attributes,        //附加属性
-            _retry: 0,                                  //重试次数
-        }
-        return resource;
-    }
-
-    addResource(resource: Resource|string, topics: Array<string> = [], extra_attributes = null){
-        if(typeof(topics) == "string"){
-            topics = [topics];
-        }
-        if(typeof(resource) == 'string'){
-            resource = this.buildResource(resource, topics, extra_attributes);
-        }
+    addResource(resource: Resource){
         this._config.queue.push(resource);
         this.emit("resource.push", this, resource);
     }
 
-    createWorkflow(queue: Queue<Resource>, onInterval: number, onTimeout: number): Rx.Observable<Resource>{
-        return Rx.interval(onInterval).pipe(
+    createWorkflow(queue: Queue<Resource>, onInterval: number, onTimeout: number): Observable<Resource>{
+        return interval(onInterval).pipe(
             map( () => {
                 try{
                     return queue.shift() || null;
@@ -84,7 +75,7 @@ export default class App extends EventEmitter{
         )
     }
 
-    createObservable(): Rx.Observable<Resource>{
+    createObservable(): Observable<Resource>{
         //@ts-ignore
         return this.createWorkflow(this._config.queue, this._config.interval, this._config.timeout).pipe(
             concatMap(async (resource: Resource) => {

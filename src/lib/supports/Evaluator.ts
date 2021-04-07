@@ -1,6 +1,18 @@
 import jsdom from "jsdom";
 import jmespath from "jmespath";
 
+// let {
+//     Document,
+//     Attr,
+//     Text,
+//     Element,
+//     HTMLElement,
+//     HTMLAnchorElement,
+//     HTMLImageElement,
+//     XPathResult
+// } = new jsdom.JSDOM().window;
+
+
 let getNodeValue = function(node: Element){
    if(node instanceof Attr){
        return node.value;

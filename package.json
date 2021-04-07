@@ -16,15 +16,17 @@
     "lodash": "^4.17.20",
     "log4js": "^6.3.0",
     "node-fetch": "^2.6.1",
-    "rxjs": "^6.6.3"
+    "rxjs": "^6.6.7",
+    "rxjs-compat": "^6.6.7"
   },
   "scripts": {
     "start": "node main.js",
     "test": "mocha \"build/src/test/**\""
   },
   "author": "",
-  "license": "ISC",
+  "license": "GPL",
   "devDependencies": {
+    "@types/fs-extra": "^9.0.10",
     "@types/lodash": "^4.14.168",
     "@types/mocha": "^8.2.1",
     "@types/should": "^13.0.0",

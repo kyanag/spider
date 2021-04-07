@@ -7,8 +7,10 @@ import {
 
 declare global{
     interface Function{
-        //装饰器
-        addDecorator(func: (...args: any[]) => any): (...args: any[]) => any
+        //后续
+        then(func: (...args: any[]) => any): (...args: any[]) => any;
+        // //中间件
+        // addMiddleware(func: (...args: any[]) => any): (...args: any[]) => any
     }
 
     //队列
@@ -31,6 +33,7 @@ declare global{
     }
 
     declare interface IRequest{
+        method: string,
         url: string,
         headers?: Map<string, string>,
     }
@@ -54,12 +57,13 @@ declare global{
         response?: IResponse,
         error?: any,
         _topics: Array<string>,
-        _extra_attributes: any,
+        _extra_attributes?: Object,
         _retry: number, 
     }
 
     declare interface Handler{
         topic: string,
+        match? :(resource: Resource) => boolean,    //TODO
         regex: string | RegExp | null,
         extractor: (resource: Resource) => Promise<any> | any,
     }

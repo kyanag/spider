@@ -35,26 +35,12 @@ export class FetchRequester implements RequestProvider{
             status: response.status,
             statusText: response.statusText,
             body: response.body,
+            text: undefined,
         };
         if(iresponse.headers.has("content-type") && iresponse.headers.get('content-type')?.match(/^text.*/g)){
             iresponse.text = await response.text();
         }
         return iresponse;
-    }
-
-    private async blobResolve(blob: Blob): Promise<any>{
-        return new Promise((resolve, reject) => {
-            let fileReader = new FileReader();
-            fileReader.onload = (evt) => {
-                //@ts-ignore
-                resolve(evt.result);
-            }
-            fileReader.onerror = (err) => {
-                //@ts-ignore
-                reject(err);
-            }
-            fileReader.readAsText(blob);
-        })
     }
 
     private headerToMap(headers: FetchHeaders){

@@ -9,6 +9,7 @@ describe('RequestProvider', function() {
         let requester = new FetchRequester();
 
         let irequest: IRequest = {
+            method:"get",
             url: "https://www.zhihu.com/question/400286737/answer/1272247244",
         }
         requester.fetch(irequest).then( response => {
