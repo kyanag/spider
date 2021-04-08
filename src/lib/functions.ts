@@ -6,7 +6,7 @@ interface StringIndexTypes<T>{
 }
 
 
-export function create_resource_from_url(url: string, topics: Array<string> = [], extra_attributes = undefined): Resource{
+export function create_resource_from_url(url: string, topics: Array<string> = [], extra_attributes?: Object): Resource{
     let resource: Resource = {
         request: {
             method: "get",
@@ -20,7 +20,7 @@ export function create_resource_from_url(url: string, topics: Array<string> = []
 }
 
 
-export function xpath_extractor_factory(xpath_selectors: StringIndexTypes<any>){
+export function extractor_by_xpath(xpath_selectors: StringIndexTypes<any>){
     return function(resource: Resource){
         // @ts-ignore
         let evaluator = new Evaluator(resource.response);
@@ -32,7 +32,7 @@ export function xpath_extractor_factory(xpath_selectors: StringIndexTypes<any>){
     }
 }
 
-export function query_extractor_factory(selectors: StringIndexTypes<any>){
+export function extractor_by_query(selectors: StringIndexTypes<any>){
     return function(resource: Resource){
         // @ts-ignore
         let evaluator = new Evaluator(resource.response);
@@ -45,10 +45,9 @@ export function query_extractor_factory(selectors: StringIndexTypes<any>){
     }
 }
 
-export function json_extractor_factory(selectors: StringIndexTypes<any>){
+export function extractor_by_jsonpath(selectors: StringIndexTypes<any>){
     return function(resource: Resource){
-        // @ts-ignore
-        let evaluator = new Evaluator(resource.response);
+        let evaluator = new Evaluator(resource.response as IResponse);
 
         let _:StringIndexTypes<any> = {};
         for(let i in selectors){
@@ -58,17 +57,14 @@ export function json_extractor_factory(selectors: StringIndexTypes<any>){
     }
 }
 
-export function link_extrator_factory(selector:string = "a[href]", patterns: RegExp[] = []): Function{
+export function extractor_for_link(selector:string = "a[href]", patterns: RegExp[] = []): Function{
     return function(resource: Resource){
-        // @ts-ignore
-        let evaluator = new Evaluator(resource.response);
+        let evaluator = new Evaluator(resource.response as IResponse);
         let elements = evaluator.find(selector);
         
-        // @ts-ignore
-        return Array.from(elements).filter( (node: HTMLAnchorElement) => {
+        return Array.from(elements as Array<HTMLAnchorElement>).filter( (node: HTMLAnchorElement) => {
             return node.href != "";
         })
-        // @ts-ignore
         .map( (node: HTMLAnchorElement) => {
             return url.resolve(resource.request.url, node.href);
         })
@@ -85,4 +81,13 @@ export function link_extrator_factory(selector:string = "a[href]", patterns: Reg
             return false;
         });
     };
+}
+
+export function matcher_for_url(pattern: RegExp | string | boolean): Matcher{
+    return function(resource: Resource){
+        if(pattern === true || pattern === false){
+            return pattern;
+        }
+        return resource.request.url.match(pattern) !== null;
+    }
 }

@@ -3,9 +3,13 @@ import fs from "fs-extra";
 import path from "path";
 import {
     create_resource_from_url,
-    link_extrator_factory,
-    xpath_extractor_factory,
-    json_extractor_factory,
+
+    extractor_by_xpath,
+    extractor_by_jsonpath,
+
+    extractor_for_link,
+
+    matcher_for_url
 } from "../src/lib/functions";
 
 let filter: Set<String> = new Set<String>();
@@ -50,11 +54,15 @@ let config: Config = {
             //console.log(`--- ${request.url} 开始`);
         },
         "resource.responded": function(app: App, resource:Resource){
-            //@ts-ignore
             //console.log(resource.response.body);
         },
         "resource.fail": function(app: App, resource:Resource, error: any){
             console.log(`resource.fail: ${resource.request.url}`, error);
+        },
+        "resource.matched": function(app: App, resource:Resource, handler: Handler){
+            if(handler.topic == "ooxx"){
+                console.warn("matched: ", resource.request.url);
+            }
         },
         "extract.success": function(
             app: App, 
@@ -75,16 +83,19 @@ let config: Config = {
                     console.log(`extract.success.default:  ${topic}:`, data);
             }
         },
+        "extract.error": function(app: App, resource, handler, error){
+            console.log("extract.error@", error.message);
+        },
         "extract.fail": function(app: App, resource, handler, error){
-            console.log(error.message);
+            console.log("extract.fail@", error.message);
         },
     },
     extractors: [
         {
             topic: "link",
-            regex: /ooxx[\/a-zA-Z0-9]*/g,
+            match: matcher_for_url(/ooxx/g),
             extractor: function(resource: Resource){
-                let links = (link_extrator_factory("a[href]", [
+                let links = (extractor_for_link("a[href]", [
                     /\/ooxx[\/a-zA-Z0-9]*/g,
                 ]))(resource);
                 return (links as Array<string>).map( link => {
@@ -93,54 +104,50 @@ let config: Config = {
                     if(filter.has(link)){
                         return false;
                     }
-
-                    // @ts-ignore
                     let resource = create_resource_from_url(link);
                     filter.add(link);
+
                     // @ts-ignore
                     this.addResource(resource);
-
                     return true;
                 })
             },
         },
         {
             topic: "ooxx",  //随手拍
-            regex: /ooxx[\/a-zA-Z0-9]*/g,
+            match: matcher_for_url(/ooxx/g),
             extractor: function(resource: Resource){
-                let data = (xpath_extractor_factory({
+                let data = (extractor_by_xpath({
                     'images': "//*[contains(@id,'comment-')]/div/div/div[2]/p/a/@href"
                 }))(resource);
 
                 let images = data['images'];
+
                 return images.map( (image: string) => {
                     return url.resolve(resource.request.url, image);
                 }).filter( (image: string) => {
                     if(filter.has(image)){
                         return false;
                     }
-                    //@ts-ignore
                     let newResource = create_resource_from_url(image, ["download"], {
                         '_filename': path.resolve("./storage/jiandan/images", path.basename(image)),
                     })
                     //@ts-ignore
                     this.addResource(newResource);
-
                     return true;
                 });
             },
         },
         {
             topic: "download",
-            regex: null,
+            match: matcher_for_url(false),
             /**
              * 
              * @param {Request, Response} param0 
              * @param {Array} resource 
              */
             extractor: function(resource: Resource){
-                //@ts-ignore
-                let _filename = (resource._extra_attributes as Object)._filename;
+                let _filename = (resource._extra_attributes as {_filename:string})._filename;
 
                 return new Promise((resolve, reject) => {
                     resource.response?.body

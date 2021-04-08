@@ -1,7 +1,6 @@
-import { Observable, Subject, asapScheduler, pipe, of, from, interval, merge, fromEvent } from 'rxjs';
+import { Observable, interval} from 'rxjs';
 import { map, filter, timeout, concatMap} from "rxjs/operators";
 import EventEmitter from "events";
-import lodash from "lodash";
 
 const { FetchRequester } = require("./supports/RequestProvider");
 
@@ -49,7 +48,6 @@ export class App extends EventEmitter{
             let handler = listeners[name];
             this.on(name, handler);
         }
-        //@ts-ignore
         this._requestProvider = new FetchRequester();
     }
 
@@ -126,14 +124,12 @@ export class App extends EventEmitter{
         this.subscription = this.createObservable().subscribe(
             (resource: Resource) => {
                 this._config.extractors.filter( (handler: Handler) => {
-                    if(lodash.indexOf(resource._topics, handler.topic) >= 0){
+                    if(resource._topics.indexOf(handler.topic) >= 0){
                         return true;
                     }
-                    if(handler.regex === null){
-                        return false;
-                    }
-                    return resource.request.url.match(handler.regex) != null;
+                    return handler.match(resource);
                 }).forEach( (handler: Handler) => {
+                    this.emit("resource.matched", this, resource, handler);
                     try{
                         let extractor = handler.extractor;
                         Promise.resolve(

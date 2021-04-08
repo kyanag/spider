@@ -26,6 +26,8 @@ declare global{
     declare type FetchResponse = Response;
     declare type FetchHeaders = Headers;
 
+    declare type Matcher = (resource: Resource) => boolean;
+
     //过滤器
     declare interface Filter<T>{
         exists: (T) => boolean,             //是否存在
@@ -63,8 +65,7 @@ declare global{
 
     declare interface Handler{
         topic: string,
-        match? :(resource: Resource) => boolean,    //TODO
-        regex: string | RegExp | null,
+        match : Matcher,
         extractor: (resource: Resource) => Promise<any> | any,
     }
 

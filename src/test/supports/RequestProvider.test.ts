@@ -14,9 +14,9 @@ describe('RequestProvider', function() {
         }
         requester.fetch(irequest).then( response => {
             //console.log("headers:", response.headers);
-            console.log("", get_class(response.body));
+            //console.log("", get_class(response.body));
         }).catch( error => {
-            console.log("111:", error);
+            //console.log("111:", error);
         });
         assert.ok(true);
     });

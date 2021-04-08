@@ -1,16 +1,20 @@
 import jsdom from "jsdom";
 import jmespath from "jmespath";
 
-// let {
-//     Document,
-//     Attr,
-//     Text,
-//     Element,
-//     HTMLElement,
-//     HTMLAnchorElement,
-//     HTMLImageElement,
-//     XPathResult
-// } = new jsdom.JSDOM().window;
+
+/**
+ * node cli 中没有DOM系统，需要导入 jsdom 里的相关class
+ */
+let {
+    Document,
+    Attr,
+    Text,
+    Element,
+    HTMLElement,
+    HTMLAnchorElement,
+    HTMLImageElement,
+    XPathResult
+} = new jsdom.JSDOM().window;
 
 
 let getNodeValue = function(node: Element){
