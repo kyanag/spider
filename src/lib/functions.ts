@@ -20,10 +20,9 @@ export function create_resource_from_url(url: string, topics: Array<string> = []
 }
 
 
-export function extractor_by_xpath(xpath_selectors: StringIndexTypes<any>){
-    return function(resource: Resource){
-        // @ts-ignore
-        let evaluator = new Evaluator(resource.response);
+export function create_xpath_extractor(xpath_selectors: StringIndexTypes<any>){
+    return function(response: IResponse){
+        let evaluator = new Evaluator(response);
         let _:StringIndexTypes<any> = {};
         for(let i in xpath_selectors){
             _[i] = evaluator.findByXpath(xpath_selectors[i]);
@@ -32,11 +31,9 @@ export function extractor_by_xpath(xpath_selectors: StringIndexTypes<any>){
     }
 }
 
-export function extractor_by_query(selectors: StringIndexTypes<any>){
-    return function(resource: Resource){
-        // @ts-ignore
-        let evaluator = new Evaluator(resource.response);
-
+export function create_query_extractor(selectors: StringIndexTypes<any>){
+    return function(response: IResponse){
+        let evaluator = new Evaluator(response);
         let _:StringIndexTypes<any> = {};
         for(let i in selectors){
             _[i] = evaluator.find(selectors[i]);
@@ -45,9 +42,9 @@ export function extractor_by_query(selectors: StringIndexTypes<any>){
     }
 }
 
-export function extractor_by_jsonpath(selectors: StringIndexTypes<any>){
-    return function(resource: Resource){
-        let evaluator = new Evaluator(resource.response as IResponse);
+export function create_jsonpath_extractor(selectors: StringIndexTypes<any>){
+    return function(response: IResponse){
+        let evaluator = new Evaluator(response);
 
         let _:StringIndexTypes<any> = {};
         for(let i in selectors){
@@ -57,16 +54,16 @@ export function extractor_by_jsonpath(selectors: StringIndexTypes<any>){
     }
 }
 
-export function extractor_for_link(selector:string = "a[href]", patterns: RegExp[] = []): Function{
-    return function(resource: Resource){
-        let evaluator = new Evaluator(resource.response as IResponse);
+export function extractor_for_link(selector:string = "a[href]", patterns: RegExp[] = []){
+    return function(response: IResponse){
+        let evaluator = new Evaluator(response);
         let elements = evaluator.find(selector);
         
         return Array.from(elements as Array<HTMLAnchorElement>).filter( (node: HTMLAnchorElement) => {
             return node.href != "";
         })
         .map( (node: HTMLAnchorElement) => {
-            return url.resolve(resource.request.url, node.href);
+            return url.resolve(response.request.url, node.href);
         })
         .filter( (link: string) => {
             if(patterns.length == 0){
@@ -83,11 +80,11 @@ export function extractor_for_link(selector:string = "a[href]", patterns: RegExp
     };
 }
 
-export function matcher_for_url(pattern: RegExp | string | boolean): Matcher{
-    return function(resource: Resource){
+export function matcher_for_url(pattern: RegExp | string | boolean): (response: IResponse) => boolean{
+    return function(response: IResponse){
         if(pattern === true || pattern === false){
             return pattern;
         }
-        return resource.request.url.match(pattern) !== null;
+        return response.request.url.match(pattern) !== null;
     }
 }

@@ -2,37 +2,13 @@ import { Observable, interval} from 'rxjs';
 import { map, filter, timeout, concatMap} from "rxjs/operators";
 import EventEmitter from "events";
 
-const { FetchRequester } = require("./supports/RequestProvider");
-
-// @ts-ignore
-Function.prototype.addMiddleware = function(middleware: (input: any, next: Function) => any): Function{                               
-    let core = this;
-    return async function(input: any){
-        //@ts-ignore
-        return middleware.call(this, input, core);
-        
-        // @ts-ignore
-        let _ = await Promise.resolve(last.call(this, ...args));
-        // @ts-ignore
-        return middleware.call(this, _);
-    }
-}
-
-Function.prototype.then = function(next: (...args: any[]) => any): (...args: any[]) => any{ 
-    let last:Function = this;                                       
-    return async function(...args: any[]){
-        // @ts-ignore
-        let _ = await Promise.resolve(last.call(this, ...args));
-        // @ts-ignore
-        return next.call(this, _);
-    }
-}
+const { BasicClient } = require("./supports/BasicClient");
 
 export class App extends EventEmitter{
     id: string
     private _config: Config;
 
-    private _requestProvider: RequestProvider;
+    private client: Client;
 
     private subscription: any;
     
@@ -45,10 +21,11 @@ export class App extends EventEmitter{
         //绑定事件
         let listeners = config.listeners || {};
         for(let name in listeners){
+            //@ts-ignore
             let handler = listeners[name];
             this.on(name, handler);
         }
-        this._requestProvider = new FetchRequester();
+        this.client = new BasicClient();
     }
 
     addResource(resource: Resource){
@@ -73,19 +50,23 @@ export class App extends EventEmitter{
         )
     }
 
-    createObservable(): Observable<Resource>{
+    createObservable(): Observable<IResponse>{
         //@ts-ignore
         return this.createWorkflow(this._config.queue, this._config.interval, this._config.timeout).pipe(
             concatMap(async (resource: Resource) => {
-                this.emit("resource.before-fetch", this, resource);
-                return this.fetch(resource).then( (resource:Resource) => {
-                    if(resource.response === undefined){
-                        return null;
-                    }
-                    return resource;
+                this.emit("resource.ready", this, resource);
+                return this.client.fetch(resource.request, 2000).then( (response: IResponse) => {
+                    response.resource = resource;
+                    response.request = resource.request;
+                    
+                    this.emit("resource.responded", this, resource, response);
+                    return response;
+                }).catch( (error: any) => {
+                    this.emit("resource.failed", this, resource, error);
+                    return null;
                 })
             }),
-            filter( (value: Resource | null) => {
+            filter( (value: IResponse | null) => {
                 return value !== null;
             })
         );
@@ -93,7 +74,6 @@ export class App extends EventEmitter{
 
     retry(resource: Resource){
         resource._retry += 1;
-        resource.response = undefined;
 
         if(resource._retry < this._config.max_retry_num){
             this.addResource(resource);
@@ -102,48 +82,28 @@ export class App extends EventEmitter{
         }
     }
 
-    /**
-     * 请求页面
-     */
-    async fetch(resource: Resource, timeout: number = 2000): Promise<Resource>{
-        this.emit("resource.ready", this, resource);
-
-        return this._requestProvider.fetch(resource.request, timeout).then( (response: IResponse) => {
-            resource.response = response;
-            this.emit("resource.responded", this, resource);
-            return resource;
-        }).catch( (error:any) => {
-            this.emit("resource.fail", this, resource, error);
-            this.retry(resource);
-            return resource;
-        });
-    }
-
     run(){
         this.emit("app.ready", this);
         this.subscription = this.createObservable().subscribe(
-            (resource: Resource) => {
+            (response: IResponse) => {
                 this._config.extractors.filter( (handler: Handler) => {
-                    if(resource._topics.indexOf(handler.topic) >= 0){
+                    if(response.resource._topics.indexOf(handler.topic) >= 0){
                         return true;
                     }
-                    return handler.match(resource);
+                    return handler.match(response);
                 }).forEach( (handler: Handler) => {
-                    this.emit("resource.matched", this, resource, handler);
+                    this.emit("response.matched", this, response, handler);
                     try{
                         let extractor = handler.extractor;
                         Promise.resolve(
-                            extractor.call(this, resource)
+                            extractor.call(this, response)
                         ).then( record => {
-                            if(resource._extra_attributes){
-                                record = Object.assign(resource._extra_attributes, record);
-                            }
-                            this.emit("extract.success", this, handler.topic, record, resource, handler);
+                            this.emit("extract.success", this, handler.topic, record, response, handler);
                         }).catch( error => {
-                            this.emit("extract.fail", this, resource, handler, error);
+                            this.emit("extract.fail", this, response, handler, error);
                         })
                     }catch(error){
-                        this.emit("extract.error", this, resource, handler, error);
+                        this.emit("extract.error", this, response, handler, error);
                     }
                 })
             }, 

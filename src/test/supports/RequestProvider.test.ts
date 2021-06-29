@@ -1,12 +1,12 @@
 import assert from "assert";
-import {FetchRequester} from "../../lib/supports/RequestProvider"
+import {BasicClient} from "../../lib/supports/BasicClient"
 import { get_class } from "../function";
 const db = require("mime-db");
 
 
 describe('RequestProvider', function() {
     it('@RequestByFetch', async function() {
-        let requester = new FetchRequester();
+        let requester = new BasicClient();
 
         let irequest: IRequest = {
             method:"get",

@@ -4,11 +4,11 @@ import path from "path";
 import {
     create_resource_from_url,
 
-    extractor_by_xpath,
-    extractor_by_jsonpath,
+    create_xpath_extractor,
+    create_jsonpath_extractor,
+    create_query_extractor,
 
     extractor_for_link,
-
     matcher_for_url
 } from "../src/lib/functions";
 
@@ -24,6 +24,9 @@ let config: Config = {
     timeout: 10 * 1000,             //队列空置 ${x} 微秒后退出
     listeners: {
         "app.ready": function(app: App){
+            if(!fs.existsSync("./storage")){
+                fs.mkdirSync("./storage");
+            }
             if(!fs.existsSync("./storage/jiandan")){
                 fs.mkdirSync("./storage/jiandan");
             }
@@ -53,13 +56,13 @@ let config: Config = {
         "resource.shift": function(app: App, resource:Resource){
             //console.log(`--- ${request.url} 开始`);
         },
-        "resource.responded": function(app: App, resource:Resource){
+        "resource.responded": function(app: App, resource:Resource, response: IResponse){
             //console.log(resource.response.body);
         },
-        "resource.fail": function(app: App, resource:Resource, error: any){
+        "resource.failed": function(app: App, resource:Resource, error: any){
             console.log(`resource.fail: ${resource.request.url}`, error);
         },
-        "resource.matched": function(app: App, resource:Resource, handler: Handler){
+        "response.matched": function(app: App, resource:Resource, handler: Handler){
             if(handler.topic == "ooxx"){
                 console.warn("matched: ", resource.request.url);
             }
@@ -68,7 +71,7 @@ let config: Config = {
             app: App, 
             topic: string, 
             data: any, 
-            resource: Resource, 
+            response: IResponse, 
             handler: Handler
         ){
             switch(topic){
@@ -86,7 +89,7 @@ let config: Config = {
         "extract.error": function(app: App, resource, handler, error){
             console.log("extract.error@", error.message);
         },
-        "extract.fail": function(app: App, resource, handler, error){
+        "extract.failed": function(app: App, resource, handler, error){
             console.log("extract.fail@", error.message);
         },
     },
@@ -94,71 +97,34 @@ let config: Config = {
         {
             topic: "link",
             match: matcher_for_url(/ooxx/g),
-            extractor: function(resource: Resource){
-                let links = (extractor_for_link("a[href]", [
-                    /\/ooxx[\/a-zA-Z0-9]*/g,
-                ]))(resource);
-                return (links as Array<string>).map( link => {
-                    return url.resolve(resource.request.url, link);
-                }).filter( link => {
-                    if(filter.has(link)){
-                        return false;
-                    }
-                    let resource = create_resource_from_url(link);
-                    filter.add(link);
-
-                    // @ts-ignore
-                    this.addResource(resource);
-                    return true;
-                })
-            },
+            extractor: extractor_for_link("a[href]", [
+                /\/ooxx[\/a-zA-Z0-9]*/g,
+            ]),
         },
         {
-            topic: "ooxx",  //随手拍
+            topic: "ooxx",
             match: matcher_for_url(/ooxx/g),
-            extractor: function(resource: Resource){
-                let data = (extractor_by_xpath({
-                    'images': "//*[contains(@id,'comment-')]/div/div/div[2]/p/a/@href"
-                }))(resource);
-
-                let images = data['images'];
-
-                return images.map( (image: string) => {
-                    return url.resolve(resource.request.url, image);
-                }).filter( (image: string) => {
-                    if(filter.has(image)){
-                        return false;
-                    }
-                    let newResource = create_resource_from_url(image, ["download"], {
-                        '_filename': path.resolve("./storage/jiandan/images", path.basename(image)),
-                    })
-                    //@ts-ignore
-                    this.addResource(newResource);
-                    return true;
-                });
-            },
+            extractor: create_xpath_extractor({
+                'images': "//*[contains(@id,'comment-')]/div/div/div[2]/p/a/@href"
+            }),
         },
         {
             topic: "download",
             match: matcher_for_url(false),
-            /**
-             * 
-             * @param {Request, Response} param0 
-             * @param {Array} resource 
-             */
-            extractor: function(resource: Resource){
-                let _filename = (resource._extra_attributes as {_filename:string})._filename;
+            extractor: function(response: IResponse){
+                return response;
+                // let _filename = (resource._extra_attributes as {_filename:string})._filename;
 
-                return new Promise((resolve, reject) => {
-                    resource.response?.body
-                    .pipe(fs.createWriteStream(_filename))
-                    .on("finish", function(){
-                        resolve(_filename);
-                    })
-                    .on("error", function(err){
-                        reject(err);
-                    });
-                });
+                // return new Promise((resolve, reject) => {
+                //     resource.response?.body
+                //     .pipe(fs.createWriteStream(_filename))
+                //     .on("finish", function(){
+                //         resolve(_filename);
+                //     })
+                //     .on("error", function(err){
+                //         reject(err);
+                //     });
+                // });
             },
         },
     ],

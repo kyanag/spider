@@ -6,7 +6,7 @@ const {
 const AbortController = require("abort-controller");
 
 
-export class FetchRequester implements RequestProvider{
+export class BasicClient implements Client{
 
     fetch(irequest: IRequest, timeout: number = 2000): Promise<IResponse>{
         const controller = new AbortController();
@@ -17,7 +17,7 @@ export class FetchRequester implements RequestProvider{
         let request = this.createRequest(irequest);
         return nodeFetch(request, { signal: controller.signal })
             .then( async (response: any) => {
-                return await this.toIResponse(response);
+                return await this.toIResponse(irequest, response);
             }).finally(() => {
                 clearTimeout(seed);
             });
@@ -27,13 +27,14 @@ export class FetchRequester implements RequestProvider{
         return new Request(irequest.url);
     }
     
-    private async toIResponse(response: FetchResponse): Promise<IResponse>{
+    private async toIResponse(request: IRequest, response: Response): Promise<IResponse>{
         let iresponse: IResponse = {
             ok: response.ok,
             url: response.url,
             headers: this.headerToMap(response.headers),
             status: response.status,
             statusText: response.statusText,
+            //@ts-ignore
             body: response.body,
             text: undefined,
         };
@@ -43,7 +44,7 @@ export class FetchRequester implements RequestProvider{
         return iresponse;
     }
 
-    private headerToMap(headers: FetchHeaders){
+    private headerToMap(headers: Headers){
         let map = new Map<string, string>();
         headers.forEach( (value, key) => {
             map.set(key, value);
