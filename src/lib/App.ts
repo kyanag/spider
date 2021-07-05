@@ -8,6 +8,8 @@ export class App extends EventEmitter{
     id: string
     private _config: Config;
 
+    // private queue: Queue<Resource>;
+
     private client: Client;
 
     private subscription: any;
@@ -33,7 +35,12 @@ export class App extends EventEmitter{
         this.emit("resource.push", this, resource);
     }
 
-    createWorkflow(queue: Queue<Resource>, onInterval: number, onTimeout: number): Observable<Resource>{
+    createWorkflow(queue: Queue<Resource>, onInterval: number, onTimeout: number, onWarning: number = 0): Observable<Resource>{
+        if(onWarning == 0){
+            onWarning = Math.round(onTimeout / 2000) * 1000;
+        }
+        let countWarningTime = 0;
+
         return interval(onInterval).pipe(
             map( () => {
                 try{
@@ -44,6 +51,14 @@ export class App extends EventEmitter{
             }),
             // @ts-ignore
             filter( (value: Resource | null) => {
+                if(value === null){
+                    countWarningTime += onInterval;
+                    if(countWarningTime >= onWarning){
+                        this.emit("app.warning");
+                    }
+                }else{
+                    countWarningTime = 0;
+                }
                 return value !== null;
             }),
             timeout(onTimeout),

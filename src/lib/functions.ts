@@ -1,10 +1,19 @@
 import url from "url";
 import Evaluator from "./supports/Evaluator";
+import fs from "fs-extra";
+import readline from "readline";
+
 
 interface StringIndexTypes<T>{
     [index: string]: T,
 }
 
+export function *range(start: number, end: number, step: number = 1): Generator<number>{
+    while(start != end){
+        yield start;
+        start += step;
+    }
+}
 
 export function create_resource_from_url(url: string, topics: Array<string> = [], extra_attributes?: Object): Resource{
     let resource: Resource = {

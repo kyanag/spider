@@ -48,6 +48,7 @@ declare global{
         statusText: string,
         headers: Map<string, string>,
         body: NodeJS.ReadableStream,
+        isText: boolean,
         text?: string,
     }
 

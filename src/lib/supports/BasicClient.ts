@@ -29,6 +29,7 @@ export class BasicClient implements Client{
     
     private async toIResponse(request: IRequest, response: Response): Promise<IResponse>{
         let iresponse: IResponse = {
+            request: request,
             ok: response.ok,
             url: response.url,
             headers: this.headerToMap(response.headers),
@@ -36,9 +37,18 @@ export class BasicClient implements Client{
             statusText: response.statusText,
             //@ts-ignore
             body: response.body,
+            isText: false,
             text: undefined,
         };
-        if(iresponse.headers.has("content-type") && iresponse.headers.get('content-type')?.match(/^text.*/g)){
+        if(
+            iresponse.headers.has("content-type") && 
+            (
+                iresponse.headers.get('content-type')?.match(/^text.*/g)
+                ||
+                iresponse.headers.get('content-type')?.match(/charset/g)
+            )
+        ){
+            iresponse.isText = true;
             iresponse.text = await response.text();
         }
         return iresponse;
