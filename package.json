@@ -10,9 +10,7 @@
     "jmespath": "^0.15.0",
     "jsdom": "^16.4.0",
     "log4js": "^6.3.0",
-    "node-fetch": "^2.6.1",
-    "rxjs": "^6.6.7",
-    "rxjs-compat": "^6.6.7"
+    "node-fetch": "^2.6.1"
   },
   "scripts": {
     "dev": "tsc -w",

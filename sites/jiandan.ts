@@ -12,14 +12,10 @@ import {
     matcher_for_url
 } from "../src/lib/functions";
 
-let filter: Set<String> = new Set<String>();
-
-let queue = new Array<Resource>();
-
 let config: Config = {
     id: "jiandan",
-    queue: queue,
     max_retry_num: 5,
+    nums: 4,
     interval: 1 * 1000,             //请求间隔时间
     timeout: 10 * 1000,             //队列空置 ${x} 微秒后退出
     listeners: {
@@ -39,7 +35,9 @@ let config: Config = {
             if(!fs.existsSync("./storage/jiandan/history.log")){
 
             }
-            queue.push(create_resource_from_url("http://jandan.net/ooxx", []))
+            app.addResource(
+                create_resource_from_url("http://jandan.net/girl", [])
+            );
         },
         "app.before-stop": function(app: App){
             
@@ -48,7 +46,7 @@ let config: Config = {
             console.log(`app-error: ${JSON.stringify(error)}`);
         },
         "resource.push": function(app: App, resource: Resource){
-            //console.log(`入队: ${resource.request.url}`);
+            console.log(`入队: ${resource.request.url}`);
         },
         "resource.ready": function(app: App, resource:Resource){
             //console.log(`--- ${request.url} 开始`);
@@ -62,8 +60,8 @@ let config: Config = {
         "resource.failed": function(app: App, resource:Resource, error: any){
             console.log(`resource.fail: ${resource.request.url}`, error);
         },
-        "response.matched": function(app: App, resource:Resource, handler: Handler){
-            if(handler.topic == "ooxx"){
+        "response.matched": function(app: App, resource:Resource, extractor: Extractor){
+            if(extractor.topic == "ooxx"){
                 console.warn("matched: ", resource.request.url);
             }
         },
@@ -72,11 +70,11 @@ let config: Config = {
             topic: string, 
             data: any, 
             response: IResponse, 
-            handler: Handler
+            extractor: Extractor
         ){
             switch(topic){
                 case "link":
-                case "ooxx":
+                case "girl":
                     console.log(`extract.success:  ${topic}:`, (data as Array<string>).length);
                     break;
                 case "download":
@@ -86,46 +84,27 @@ let config: Config = {
                     console.log(`extract.success.default:  ${topic}:`, data);
             }
         },
-        "extract.error": function(app: App, resource, handler, error){
+        "extract.error": function(app: App, resource, extractor, error){
             console.log("extract.error@", error.message);
         },
-        "extract.failed": function(app: App, resource, handler, error){
+        "extract.failed": function(app: App, resource, extractor, error){
             console.log("extract.fail@", error.message);
         },
     },
     extractors: [
         {
             topic: "link",
-            match: matcher_for_url(/ooxx/g),
-            extractor: extractor_for_link("a[href]", [
-                /\/ooxx[\/a-zA-Z0-9]*/g,
+            match: matcher_for_url(/girl/g),
+            extract: extractor_for_link("a[href]", [
+                /\/girl[\/a-zA-Z0-9]*/g,
             ]),
         },
         {
-            topic: "ooxx",
-            match: matcher_for_url(/ooxx/g),
-            extractor: create_xpath_extractor({
+            topic: "girl",
+            match: matcher_for_url(/girl/g),
+            extract: create_xpath_extractor({
                 'images': "//*[contains(@id,'comment-')]/div/div/div[2]/p/a/@href"
             }),
-        },
-        {
-            topic: "download",
-            match: matcher_for_url(false),
-            extractor: function(response: IResponse){
-                return response;
-                // let _filename = (resource._extra_attributes as {_filename:string})._filename;
-
-                // return new Promise((resolve, reject) => {
-                //     resource.response?.body
-                //     .pipe(fs.createWriteStream(_filename))
-                //     .on("finish", function(){
-                //         resolve(_filename);
-                //     })
-                //     .on("error", function(err){
-                //         reject(err);
-                //     });
-                // });
-            },
         },
     ],
 };

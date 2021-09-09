@@ -18,10 +18,10 @@ export class Factory{
             outstream.write(`${arguments[0]}\r\n`);
         }
 
-        let downloadHandler: Handler = {
+        let downloadHandler: Extractor = {
             topic: "_download",
             match: () => false,
-            extractor: function(response: IResponse){
+            extract: function(response: IResponse){
                 //@ts-ignore
                 let save_as = response.resource._extra_attributes?.save_as ?? `${path.basename(response.request.url)}`;
                 save_as = `${download_path}/${save_as}`;

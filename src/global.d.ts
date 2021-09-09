@@ -6,27 +6,7 @@ import {
 } from "node-fetch";
 
 declare global{
-    interface Function{
-        //后续
-        then(func: (...args: any[]) => any): (...args: any[]) => any;
-        // //中间件
-        // addMiddleware(func: (...args: any[]) => any): (...args: any[]) => any
-    }
-
-    //队列
-    declare interface Queue<T> {
-        pop: () => T | undefined,           //头部出队
-        shift: () => T | undefined,         //尾部出队
-        push: (...items: T[]) => number     //头部插入
-    };
-
     declare type App = App;
-
-    //过滤器
-    declare interface Filter<T>{
-        exists: (T) => boolean,             //是否存在
-        add: (T) => void,                   //过滤器插入
-    }
 
     declare interface IRequest{
         method: string,
@@ -63,20 +43,14 @@ declare global{
         _retry: number, 
     }
 
-    declare interface Handler{
-        topic: string,
-        match : (response: IResponse) => boolean,
-        extractor: (response: IResponse) => Promise<any> | any,
+    declare interface Job{
+        run: () => void
     }
 
-    declare interface Config{
-        id: string,                                 //id
-        queue: Queue<Resource>,                     //队列
-        max_retry_num: number,                      //Resource 最大重试次数
-        interval: number,                           //请求间隔时间
-        timeout: number,                            //队列空闲 N 微秒后退出
-        listeners: Events,                          //事件监听
-        extractors: Array<Handler>                  //抽取器
+    declare interface Extractor{
+        topic: string,
+        match : (response: IResponse) => boolean,
+        extract: (response: IResponse) => Promise<any> | any,
     }
 
     declare interface Events{
@@ -84,7 +58,7 @@ declare global{
         "app.ready"? : (app: App) => void,
         //App 停止
         "app.before-stop"? : (app: App) => void,
-        //App 退出Rx循环
+        //App 退出
         "app.error"? : (app: App, error:any) => void,
         
         //resource 入队
@@ -106,6 +80,14 @@ declare global{
         "extract.failed"? : (app: App, response: IResponse, handler: Handler, error: any) => void,
         "extract.error"? : (app: App, response: IResponse, handler: Handler, error: any) => void,
     }
-
+    declare interface Config{
+        id: string,                                 //id
+        max_retry_num: number,                      //Resource 最大重试次数
+        nums: number,                               //同时执行任务数
+        interval: number,                           //请求间隔时间
+        timeout: number,                            //队列空闲 N 微秒后退出
+        listeners: Events,                          //事件监听
+        extractors: Array<Extractor>                  //抽取器
+    }
 }
 

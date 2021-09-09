@@ -15,7 +15,7 @@ export class BasicClient implements Client{
         }, timeout);
 
         let request = this.createRequest(irequest);
-        return nodeFetch(request, { signal: controller.signal })
+        return nodeFetch(request, {signal : controller.signal})
             .then( async (response: any) => {
                 return await this.toIResponse(irequest, response);
             }).finally(() => {

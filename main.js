@@ -1,6 +1,6 @@
 var arguments = process.argv.splice(2);
-const { Factory } = require("./build/src/lib/Factory");
+const { App } = require("./build/src/lib/App");
 
 let config = require(`./build/sites/${arguments[0]}.js`);
-let app = Factory.simple(config);
+let app = new App(config);
 app.run();

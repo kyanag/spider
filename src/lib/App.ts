@@ -1,8 +1,62 @@
-import { Observable, interval} from 'rxjs';
-import { map, filter, timeout, concatMap} from "rxjs/operators";
 import EventEmitter from "events";
+import { Scheduler } from './core/Scheduler';
 
 const { BasicClient } = require("./supports/BasicClient");
+
+class ResourceJob implements Job{
+    private app: App;
+    private resource: Resource;
+
+    constructor(app: App, resource: Resource) {
+        this.app = app;
+        this.resource = resource;
+    }
+
+    run(){
+        let resource = this.resource;
+
+        return this.app.getClient().fetch(resource.request, 2000).then( 
+            (response: IResponse) => {
+                response.resource = resource;
+                response.request = resource.request;
+                
+                this.app.emit("resource.responded", this.app, resource, response);
+                return this.extract(response);
+            },
+            (error: any) => {
+                this.app.emit("resource.failed", this.app, resource, error);
+                return null;
+            }
+        ).catch( 
+            (error: any) => {
+                this.app.emit("app.error", this.app, error);
+            }
+        );
+    }
+
+    extract(response: IResponse){
+        this.app.getExtractors().filter( (extractor: Extractor) => {
+            if(response.resource._topics.indexOf(extractor.topic) >= 0){
+                return true;
+            }
+            return extractor.match(response);
+        }).forEach( (extractor: Extractor) => {
+            this.app.emit("response.matched", this.app, response, extractor);
+            try{
+                let func = extractor.extract;
+                Promise.resolve(
+                    func.call(this, response)
+                ).then( record => {
+                    this.app.emit("extract.success", this.app, extractor.topic, record, response, extractor);
+                }).catch( error => {
+                    this.app.emit("extract.fail", this.app, response, extractor, error);
+                })
+            }catch(error){
+                this.app.emit("extract.error", this.app, response, extractor, error);
+            }
+        })
+    }
+}
 
 export class App extends EventEmitter{
     id: string
@@ -12,7 +66,9 @@ export class App extends EventEmitter{
 
     private client: Client;
 
-    private subscription: any;
+    private scheduler: Scheduler;
+
+    private queue: Set<Resource>;
     
     constructor(config: Config){
         super();
@@ -24,67 +80,33 @@ export class App extends EventEmitter{
         let listeners = config.listeners || {};
         for(let name in listeners){
             //@ts-ignore
-            let handler = listeners[name];
-            this.on(name, handler);
+            let extractor = listeners[name];
+            this.on(name, extractor);
         }
         this.client = new BasicClient();
+
+        this.scheduler = new Scheduler(config.nums);
+        this.queue = new Set<Resource>();
+    }
+
+    getClient(){
+        return this.client;
+    }
+
+    getExtractors(){
+        return this._config.extractors;
     }
 
     addResource(resource: Resource){
-        this._config.queue.push(resource);
+        this.queue.add(resource);
         this.emit("resource.push", this, resource);
+
+        console.log(resource.request.url);
+        this.scheduler.addJob(this.buildJob(resource));
     }
 
-    createWorkflow(queue: Queue<Resource>, onInterval: number, onTimeout: number, onWarning: number = 0): Observable<Resource>{
-        if(onWarning == 0){
-            onWarning = Math.round(onTimeout / 2000) * 1000;
-        }
-        let countWarningTime = 0;
-
-        return interval(onInterval).pipe(
-            map( () => {
-                try{
-                    return queue.shift() || null;
-                }catch(error){
-                    return null;
-                }
-            }),
-            // @ts-ignore
-            filter( (value: Resource | null) => {
-                if(value === null){
-                    countWarningTime += onInterval;
-                    if(countWarningTime >= onWarning){
-                        this.emit("app.warning");
-                    }
-                }else{
-                    countWarningTime = 0;
-                }
-                return value !== null;
-            }),
-            timeout(onTimeout),
-        )
-    }
-
-    createObservable(): Observable<IResponse>{
-        //@ts-ignore
-        return this.createWorkflow(this._config.queue, this._config.interval, this._config.timeout).pipe(
-            concatMap(async (resource: Resource) => {
-                this.emit("resource.ready", this, resource);
-                return this.client.fetch(resource.request, 2000).then( (response: IResponse) => {
-                    response.resource = resource;
-                    response.request = resource.request;
-                    
-                    this.emit("resource.responded", this, resource, response);
-                    return response;
-                }).catch( (error: any) => {
-                    this.emit("resource.failed", this, resource, error);
-                    return null;
-                })
-            }),
-            filter( (value: IResponse | null) => {
-                return value !== null;
-            })
-        );
+    protected buildJob(resource: Resource){
+        return new ResourceJob(this, resource);
     }
 
     retry(resource: Resource){
@@ -99,37 +121,17 @@ export class App extends EventEmitter{
 
     run(){
         this.emit("app.ready", this);
-        this.subscription = this.createObservable().subscribe(
-            (response: IResponse) => {
-                this._config.extractors.filter( (handler: Handler) => {
-                    if(response.resource._topics.indexOf(handler.topic) >= 0){
-                        return true;
-                    }
-                    return handler.match(response);
-                }).forEach( (handler: Handler) => {
-                    this.emit("response.matched", this, response, handler);
-                    try{
-                        let extractor = handler.extractor;
-                        Promise.resolve(
-                            extractor.call(this, response)
-                        ).then( record => {
-                            this.emit("extract.success", this, handler.topic, record, response, handler);
-                        }).catch( error => {
-                            this.emit("extract.fail", this, response, handler, error);
-                        })
-                    }catch(error){
-                        this.emit("extract.error", this, response, handler, error);
-                    }
-                })
-            }, 
-            (error: any) => {
-                this.emit("app.error", this, error);
-            }
-        );
+        this.scheduler.start();
+        setInterval( () => {
+            this.ui();
+        }, 1000);
+    }
+
+    ui(){
+        //TODO
     }
 
     stop(){
         this.emit("app.before-stop", this);
-        this.subscription.unsubscribe();
     }
 }
