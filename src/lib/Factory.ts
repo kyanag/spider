@@ -5,7 +5,7 @@ import path from "path";
 
 export class Factory{
 
-    static simple(config: Config): App{
+    static createApp(config: Config): App{
         let download_path = `./storage/${config.id}/downloads`;
         fs.ensureDirSync(`./storage/${config.id}/downloads`);
 
@@ -14,9 +14,10 @@ export class Factory{
             flags: 'a',
             encoding: 'utf8'
         })
-        console.log = function(){
-            outstream.write(`${arguments[0]}\r\n`);
-        }
+        // console.log = function(){
+        //     outstream.write(`${arguments[0]}\r\n`);
+        // }
+        console.log(`\n\n-- ${new Date().toLocaleString()}\n`);
 
         let downloadHandler: Extractor = {
             topic: "_download",

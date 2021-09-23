@@ -44,7 +44,8 @@ declare global{
     }
 
     declare interface Job{
-        run: () => void
+        title?: string
+        run: () => Promise<any> | any,
     }
 
     declare interface Extractor{
@@ -87,7 +88,7 @@ declare global{
         interval: number,                           //请求间隔时间
         timeout: number,                            //队列空闲 N 微秒后退出
         listeners: Events,                          //事件监听
-        extractors: Array<Extractor>                  //抽取器
+        extractors: Array<Extractor>                //抽取器
     }
 }
 

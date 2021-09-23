@@ -3,3 +3,4 @@
 *.nogit.*
 /build
 /.vscode
+test.js

@@ -1,44 +1,98 @@
 import { Scheduler } from "./Scheduler";
+import { AsyncBlockingQueue as Channel} from "./AsyncBlockingQueue";
+import { resolve } from "path";
+
 
 export class Worker{
     private scheduler: Scheduler;
 
-    private name: string;
+    private channel: Channel<Job>;
 
-    private _isRunning : boolean;
+    private stopResolver: undefined | ((value: unknown) => void);
 
-    constructor(scheduler: Scheduler, name: string) {
+    private _status: string;
+
+    private _name: string;
+
+    //完成一个任务后，冷却时间
+    private _cooldown: number = 0;
+
+    constructor(scheduler: Scheduler, channel: Channel<Job>, name: string) {
         this.scheduler = scheduler;
-        this.name = name;
-        this._isRunning = false;
+        this.channel = channel;
+        this._name = name;
+
+        this._status = "waiting";
     }
 
-    async exec(job: Job) {
-        this.getScheduler().emit("job.start", this, job);
-        this._isRunning = true;
-        return Promise.resolve(job.run()).then(
-            (res) => {
-                this._isRunning = false;
-                this.getScheduler().emit("job.end", this, job, true);
+    set cooldown(time: number){
+        this._cooldown = time;
+    }
+
+    async start(){
+        while(true){
+            if(this.stopResolver){
+                //如果有停止请求
+                this._status = "stopping";
+
+                let stopResolver = this.stopResolver;
+                this.stopResolver = undefined;
+                stopResolver(new Date);
+
+                //跳出循环
+                break;
             }
-        ).catch(
-            (error) => {
-                this._isRunning = false;
-                this.getScheduler().emit("job.end", this, job, false);
-                this.getScheduler().emit("job.failed", this, job, error);
+            let job = await this.channel.dequeue();
+            //开始事件
+            this.getScheduler().emit(Scheduler.EVENT_WORKER_START, this, job);
+            this._status = "running";
+
+            let successful = true;
+            let result = undefined;
+            try{
+                result = await Promise.resolve(job.run());;
+            }catch(error){
+                successful = false;
+                //任务异常事件
+                this.getScheduler().emit(Scheduler.EVENT_WORKER_FAILED, this, job, error);
             }
-        );
+            this._status = "waiting";
+            //任务结束事件
+            this.getScheduler().emit(Scheduler.EVENT_WORKER_END, this, job, successful, result);
+
+            await this.sleep(this._cooldown);
+        }
+    }
+
+    async sleep(time: number){
+        if(time <= 0){
+            return 0;
+        }else{
+            return new Promise( (resolve, reject) => {
+                setTimeout(resolve, time);
+            });
+        }
+    }
+
+    /**
+     * 发出停止请求
+     * @returns 
+     */
+    async stop(){
+        return new Promise( (resolve, reject) => {
+            this.stopResolver = resolve;
+        });
     }
 
     getScheduler(){
         return this.scheduler;
     }
 
-    getName(){
-        return this.name;
+    getStatus(){
+        return this._status;
     }
 
-    isRunning(){
-        return this._isRunning;    
+    getName(){
+        return this._name;
     }
 }

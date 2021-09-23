@@ -74,14 +74,21 @@ let config: Config = {
         ){
             switch(topic){
                 case "link":
-                case "girl":
                     console.log(`extract.success:  ${topic}:`, (data as Array<string>).length);
+                    (data as Array<string>).forEach( (link) => {
+                        app.addResource(create_resource_from_url(link));
+                    });
+                    break;
+                case "girl":
+                    console.log(`extract.success:  ${topic}:`, data);
+                    data.images.forEach( (image: string) => {
+                        image = url.resolve(response.url, image);
+                        app.addResource(create_resource_from_url(image, ['_download']));
+                    });
                     break;
                 case "download":
                     console.log("downloaded:", data._filename);
                     break;
-                default:
-                    console.log(`extract.success.default:  ${topic}:`, data);
             }
         },
         "extract.error": function(app: App, resource, extractor, error){

@@ -1,5 +1,6 @@
 import EventEmitter from "events";
 import { Scheduler } from './core/Scheduler';
+import { Worker } from "./core/Worker";
 
 const { BasicClient } = require("./supports/BasicClient");
 
@@ -107,6 +108,18 @@ export class App extends EventEmitter{
 
     protected buildJob(resource: Resource){
         return new ResourceJob(this, resource);
+    }
+
+    protected eventInit(){
+        let runningWorkerCount = 0;
+
+        this.on(Scheduler.EVENT_WORKER_START, (worker: Worker, job: Job, res: boolean) => {
+            runningWorkerCount++;
+        })
+
+        this.on(Scheduler.EVENT_WORKER_END, (worker: Worker, job: Job, res: boolean) => {
+            runningWorkerCount--;
+        });
     }
 
     retry(resource: Resource){
